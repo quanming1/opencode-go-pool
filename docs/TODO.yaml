@@ -32,20 +32,22 @@ stages:
         acceptance: hooks 启用（core.hooksPath=.githooks）；提交校验与 push 保护生效；main+develop 分支就位
       - id: A2
         title: 后端 FastAPI 骨架
-        status: todo
+        status: done
+        date: 2026-08-19
         prd: docs/prd/PRD-A2-backend-skeleton.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/backend/
-        acceptance: pytest 全过 + ruff 无警告 + /health 返回 200
+        acceptance: 全部通过——pytest 5 passed、ruff 无警告、/health 实测 200 {"status":"ok","version":"0.1.0"}
       - id: A3
         title: 前端 React+Vite+ECharts 骨架
-        status: todo
+        status: done
+        date: 2026-08-19
         prd: docs/prd/PRD-A3-web-skeleton.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/web/
-        acceptance: eslint 通过 + vitest 通过 + vite build 成功 + 白色简洁 UI（无阴影无圆角）
+        acceptance: 全部通过——eslint 无告警、vitest 2 passed、vite build 成功；DOM 实测 radius=0/shadow=none/纯白背景、ECharts canvas 渲染
   # ---- B 代理核心 ----
   - id: B
     name: 代理核心
