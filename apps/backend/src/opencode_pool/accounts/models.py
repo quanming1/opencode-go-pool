@@ -26,6 +26,8 @@ class Account:
     api_key: str
     models: tuple[str, ...] = ()
     enabled: bool = True
+    # 可选上游地址；空串 = 用全局 UPSTREAM_BASE_URL（见 Proxy Forwarder）
+    base_url: str = ""
 
     # 运行时状态
     status: AccountStatus = AccountStatus.HEALTHY

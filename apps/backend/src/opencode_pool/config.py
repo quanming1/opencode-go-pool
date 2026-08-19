@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     host: str = "127.0.0.1"
     port: int = 48700
+    # B2：代理上游默认地址与超时
+    upstream_base_url: str = "https://api.opencode.ai/v1"
+    upstream_timeout: float = 60.0
 
     # 严格模式：环境里出现未定义字段时直接报错，防配置漂移
     model_config = SettingsConfigDict(

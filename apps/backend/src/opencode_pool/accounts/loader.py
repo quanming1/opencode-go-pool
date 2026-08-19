@@ -108,12 +108,14 @@ def _parse_one(
         tuple(m for m in models if isinstance(m, str)) if isinstance(models, list) else ()
     )
 
+    base_url = raw.get("base_url")
     return Account(
         id=account_id,
         name=name if isinstance(name, str) and name else account_id,
         api_key=api_key,
         models=models_tuple,
         enabled=bool(raw.get("enabled", True)),
+        base_url=base_url if isinstance(base_url, str) else "",
     )
 
 

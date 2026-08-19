@@ -6,6 +6,9 @@ from opencode_pool import __version__
 from opencode_pool.accounts.loader import load_accounts
 from opencode_pool.accounts.pool import AccountPool
 from opencode_pool.api.accounts import router as accounts_router
+from opencode_pool.config import settings
+from opencode_pool.proxy import router as proxy_router
+from opencode_pool.proxy.forwarder import Forwarder
 
 
 def create_app(config_path: str | None = None) -> FastAPI:
@@ -21,9 +24,18 @@ def create_app(config_path: str | None = None) -> FastAPI:
     if config_path is None:
         config_path = "config/accounts.yaml"
     accounts = load_accounts(config_path)
-    app.state.account_pool = AccountPool(accounts=accounts)
+    pool = AccountPool(accounts=accounts)
+    app.state.account_pool = pool
+
+    # 代理转发器（B2：多账号外层 + 透明转发）
+    app.state.forwarder = Forwarder(
+        pool=pool,
+        upstream_base_url=settings.upstream_base_url,
+        timeout=settings.upstream_timeout,
+    )
 
     app.include_router(accounts_router)
+    app.include_router(proxy_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
