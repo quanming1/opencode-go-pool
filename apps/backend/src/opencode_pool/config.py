@@ -1,0 +1,25 @@
+"""应用配置（pydantic-settings）。
+
+.env / 环境变量加载；未知字段报错（严格模式），避免拼写错误悄悄失效。
+"""
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """全局配置。字段与 .env.example 一一对应。"""
+
+    app_name: str = "opencode-go-pool"
+    log_level: str = "INFO"
+    host: str = "127.0.0.1"
+    port: int = 48700
+
+    # 严格模式：环境里出现未定义字段时直接报错，防配置漂移
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="forbid",
+    )
+
+
+settings = Settings()
