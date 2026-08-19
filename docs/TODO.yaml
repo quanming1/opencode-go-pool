@@ -66,10 +66,13 @@ stages:
         acceptance: 全部通过——pytest 24 + API 集成 3 passed、ruff 无警告；/api/accounts 端到端实测脱敏正确
       - id: B2
         title: Responses 协议透明转发
-        status: todo
+        status: in_progress
+        prd: docs/prd/PRD-B2-transparent-proxy.md
+        prd_status: approved
         modules:
-          - apps/backend/src/proxy/
-        acceptance: SSE 流式 / 工具调用 / usage 原样透传 + fake upstream 测试
+          - apps/backend/src/opencode_pool/proxy/
+          - apps/backend/tests/test_proxy.py
+        acceptance: 非流式/流式透传 + 失败切换 mark_down + fake 上游 pytest 全绿
       - id: B3
         title: 额度错误识别与自动切换
         status: todo
