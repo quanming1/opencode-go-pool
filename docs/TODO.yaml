@@ -77,10 +77,13 @@ stages:
         acceptance: 全部通过——pytest 37 passed、ruff 无警告；非流式/流式透传、失败切换 mark_down、503、脱敏全覆盖
       - id: B3
         title: 额度错误识别与自动切换
-        status: todo
+        status: in_progress
+        prd: docs/prd/PRD-B3-rotation-enhance.md
+        prd_status: approved
         modules:
-          - apps/backend/src/rotation/
-        acceptance: 429/额度错误触发切换 + 冷却恢复 + pytest
+          - apps/backend/src/opencode_pool/scheduler.py
+          - apps/backend/tests/test_rotation.py
+        acceptance: 冷却自动恢复 + 连续失败阈值禁用 + Retry-After + pytest 全绿
       - id: B4
         title: 状态持久化（SQLite）
         status: todo
