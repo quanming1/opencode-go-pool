@@ -8,10 +8,10 @@
 |---|---|
 | 阶段 | B2 |
 | 名称 | Responses 协议透明转发 |
-| 状态 | approved |
+| 状态 | 已验收 |
 | 创建日期 | 2026-08-19 |
 | 定稿日期 | 2026-08-19 |
-| 验收日期 | — |
+| 验收日期 | 2026-08-19 |
 | 关联文档 | docs/TODO.yaml 阶段 B2；docs/prd/PRD-B1-accounts-pool.md |
 
 ## 1. 背景与目标
@@ -145,3 +145,4 @@ async with client.stream("POST", url, json=payload, headers=auth, timeout=...) a
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-19 | 初始定稿 | — |
+| 2026-08-19 | 验收通过：pytest 37 passed（含新增 13 个代理测试）、ruff 无警告；非流式/流式/切换/503/脱敏全部覆盖 | 阶段 B2 完成 |
