@@ -27,6 +27,9 @@ data/
 *.db
 *.sqlite3
 
+# 真实账号配置（含密钥，绝不入库）
+apps/backend/config/accounts.yaml
+
 # IDE / 系统
 .idea/
 .vscode/
