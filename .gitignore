@@ -12,8 +12,10 @@ build/
 # Node
 node_modules/
 dist-web/
+dist/
 .vite/
 coverage/
+*.tsbuildinfo
 
 # 环境与密钥（绝不入库）
 .env
