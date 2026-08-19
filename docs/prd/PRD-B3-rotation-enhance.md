@@ -8,10 +8,10 @@
 |---|---|
 | 阶段 | B3 |
 | 名称 | 额度错误识别与自动切换强化 |
-| 状态 | approved |
+| 状态 | 已验收 |
 | 创建日期 | 2026-08-19 |
 | 定稿日期 | 2026-08-19 |
-| 验收日期 | — |
+| 验收日期 | 2026-08-19 |
 | 关联文档 | docs/TODO.yaml 阶段 B3；docs/prd/PRD-B2-transparent-proxy.md |
 
 ## 1. 背景与目标
@@ -133,3 +133,4 @@ mark_down(account_id, reason, retry_after: int | None = None, kind: str = "error
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-19 | 初始定稿 | — |
+| 2026-08-19 | 验收通过：pytest 50 passed（含 B3 新增 13 个）、ruff 无警告；主动扫描恢复、Retry-After 动态冷却、连续失败阈值自动禁用、切换历史全部覆盖 | 阶段 B3 完成 |
