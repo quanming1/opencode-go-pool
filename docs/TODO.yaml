@@ -18,9 +18,10 @@ stages:
     steps:
       - id: A1
         title: 仓库骨架 + Rondo 规范落地
-        status: in_progress
+        status: done
+        date: 2026-08-19
         prd: docs/prd/PRD-A1-skeleton-rondo.md
-        prd_status: approved
+        prd_status: 已验收
         modules:
           - AGENTS.md
           - docs/TODO.yaml
@@ -29,7 +30,7 @@ stages:
           - .githooks/
           - CHANGELOG.md
           - .gitignore
-        acceptance: hooks 启用（core.hooksPath=.githooks）；提交校验与 push 保护生效；main+develop 分支就位
+        acceptance: 全部通过——hooksPath=.githooks、main+develop 就位、初始提交 96293b9
       - id: A2
         title: 后端 FastAPI 骨架
         status: done
@@ -54,10 +55,13 @@ stages:
     steps:
       - id: B1
         title: 账号池配置与状态机
-        status: todo
+        status: in_progress
+        prd: docs/prd/PRD-B1-accounts-pool.md
+        prd_status: approved
         modules:
-          - apps/backend/src/accounts/
-        acceptance: 多账号加载 / 健康 / 冷却状态流转 + pytest
+          - apps/backend/src/opencode_pool/accounts/
+          - apps/backend/tests/test_accounts.py
+        acceptance: 多账号加载 / 健康 / 冷却状态流转 + pytest 全绿
       - id: B2
         title: Responses 协议透明转发
         status: todo
