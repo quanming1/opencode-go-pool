@@ -1,0 +1,109 @@
+# OpenCode Go Pool 开发任务清单（TODO.yaml）
+
+# 结构化任务清单——按路线图分阶段展开；每步含：涉及模块 / 验收标准 / 状态。
+# 状态图例：done 已完成 · in_progress 进行中 · todo 未开始
+# PRD 驱动：每个阶段开工前先写 PRD（docs/prd/PRD-<阶段>-<名称>.md），流程见 docs/PROCESS.md。
+# 消费方：.githooks/check_commit_msg.py 校验 feat/fix 的 scope 阶段标识真实存在。
+
+meta:
+  status_legend:
+    done: 已完成
+    in_progress: 进行中
+    todo: 未开始
+
+stages:
+  # ---- A 地基 ----
+  - id: A
+    name: 地基
+    steps:
+      - id: A1
+        title: 仓库骨架 + Rondo 规范落地
+        status: in_progress
+        prd: docs/prd/PRD-A1-skeleton-rondo.md
+        prd_status: approved
+        modules:
+          - AGENTS.md
+          - docs/TODO.yaml
+          - docs/PROCESS.md
+          - docs/prd/PRD-TEMPLATE.md
+          - .githooks/
+          - CHANGELOG.md
+          - .gitignore
+        acceptance: hooks 启用（core.hooksPath=.githooks）；提交校验与 push 保护生效；main+develop 分支就位
+      - id: A2
+        title: 后端 FastAPI 骨架
+        status: todo
+        prd: docs/prd/PRD-A2-backend-skeleton.md
+        prd_status: 草稿
+        modules:
+          - apps/backend/
+        acceptance: pytest 全过 + ruff 无警告 + /health 返回 200
+      - id: A3
+        title: 前端 React+Vite+ECharts 骨架
+        status: todo
+        prd: docs/prd/PRD-A3-web-skeleton.md
+        prd_status: 草稿
+        modules:
+          - apps/web/
+        acceptance: eslint 通过 + vitest 通过 + vite build 成功 + 白色简洁 UI（无阴影无圆角）
+  # ---- B 代理核心 ----
+  - id: B
+    name: 代理核心
+    steps:
+      - id: B1
+        title: 账号池配置与状态机
+        status: todo
+        modules:
+          - apps/backend/src/accounts/
+        acceptance: 多账号加载 / 健康 / 冷却状态流转 + pytest
+      - id: B2
+        title: Responses 协议透明转发
+        status: todo
+        modules:
+          - apps/backend/src/proxy/
+        acceptance: SSE 流式 / 工具调用 / usage 原样透传 + fake upstream 测试
+      - id: B3
+        title: 额度错误识别与自动切换
+        status: todo
+        modules:
+          - apps/backend/src/rotation/
+        acceptance: 429/额度错误触发切换 + 冷却恢复 + pytest
+      - id: B4
+        title: 状态持久化（SQLite）
+        status: todo
+        modules:
+          - apps/backend/src/store/
+        acceptance: 重启不丢账号状态 + pytest
+  # ---- C 监控台 ----
+  - id: C
+    name: 监控台
+    steps:
+      - id: C1
+        title: 账号状态大盘
+        status: todo
+        modules:
+          - apps/web/src/features/dashboard/
+        acceptance: 账号健康/冷却/额度状态可见 + vitest
+      - id: C2
+        title: 用量与轮换趋势图（ECharts）
+        status: todo
+        modules:
+          - apps/web/src/features/charts/
+        acceptance: 请求量/Token 用量趋势 + 轮换事件时间线
+  # ---- G 收尾 ----
+  - id: G
+    name: 收尾
+    steps:
+      - id: G1
+        title: CI 与完整测试
+        status: todo
+        modules:
+          - .github/workflows/
+        acceptance: CI 绿（backend pytest/ruff + web eslint/vitest/build）
+      - id: G2
+        title: 文档与示例
+        status: todo
+        modules:
+          - README.md
+          - docs/usage.md
+        acceptance: 从零启动到代理可用的一页说明

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Node
+node_modules/
+dist-web/
+.vite/
+coverage/
+
+# 环境与密钥（绝不入库）
+.env
+.env.*
+!.env.example
+
+# 本地数据
+data/
+*.db
+*.sqlite3
+
+# IDE / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 调试产物
+*.log
+.tmp/
