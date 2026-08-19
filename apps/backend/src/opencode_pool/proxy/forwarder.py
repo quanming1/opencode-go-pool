@@ -66,7 +66,13 @@ class Forwarder:
                 last_error = exc
                 if exc.kind not in (ErrorKind.BAD_REQUEST,):
                     # 请求本身问题：不 mark_down（账号没问题，修请求即可）
-                    self._pool.mark_down(account.id, f"{exc.kind.value}: {exc.detail}")
+                    retry_after = getattr(exc, "retry_after", None)
+                    self._pool.mark_down(
+                        account.id,
+                        f"{exc.kind.value}: {exc.detail}",
+                        retry_after=retry_after,
+                        kind=exc.kind.value,
+                    )
                 if exc.kind in (ErrorKind.AUTH, ErrorKind.BAD_REQUEST):
                     # 不重试：密钥失效（AUTH 已 mark_down）或请求本身问题（BAD_REQUEST）
                     return await self._error_response(exc)
@@ -112,17 +118,22 @@ class Forwarder:
             # 上游 4xx/5xx：读取 body 分类（流式"首字节前失败"判定点）
             if status is not None and status >= 400:
                 body_text = await _stream_read(upstream)
+                retry_after = _parse_retry_after(upstream.headers.get("retry-after"))
                 await upstream.aclose()
                 kind = classify_upstream_status(status, body_text)
                 raise UpstreamError(
-                    kind, status=status, detail=_safe_detail(kind, status, body_text)
+                    kind,
+                    status=status,
+                    detail=_safe_detail(kind, status, body_text),
+                    retry_after=retry_after,
                 )
 
             if status is None:
                 await upstream.aclose()
                 raise UpstreamError(ErrorKind.NETWORK, detail="上游无响应状态码")
 
-            # 2xx：非流式转发整个 body；流式转发 SSE（不预读，避免 StreamConsumed）
+            # 2xx：成功 → 记录成功（重置连续失败计数），再转发 body
+            self._pool.record_success(account.id)
             if not stream:
                 body_text = await _stream_read(upstream)
                 await upstream.aclose()
@@ -222,3 +233,17 @@ def _safe_detail(kind: ErrorKind, status: int, body: str) -> str:
     if len(snippet) > 200:
         snippet = snippet[:200] + "..."
     return snippet or f"http {status}"
+
+
+def _parse_retry_after(value: str | None) -> int | None:
+    """解析 Retry-After 头为秒数；非法/缺失返回 None（B3 FR2）。
+
+    支持纯秒数（"30"）与 HTTP 日期（"Wed, 21 Oct 2026 07:28:00 GMT"，
+    解析失败则返回 None 走默认 TTL）。
+    """
+    if not value:
+        return None
+    value = value.strip()
+    if value.isdigit():
+        return int(value)
+    return None

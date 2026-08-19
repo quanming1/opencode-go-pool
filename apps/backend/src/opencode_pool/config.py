@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # B2：代理上游默认地址与超时
     upstream_base_url: str = "https://api.opencode.ai/v1"
     upstream_timeout: float = 60.0
+    # B3：冷却自动扫描与连续失败阈值
+    pool_scan_interval_seconds: int = 60
+    max_consecutive_failures: int = 3
 
     # 严格模式：环境里出现未定义字段时直接报错，防配置漂移
     model_config = SettingsConfigDict(

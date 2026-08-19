@@ -39,13 +39,23 @@ class ErrorKind(enum.StrEnum):
 
 
 class UpstreamError(Exception):
-    """上游转发失败（含分类信息），供 Forwarder 决定重试策略。"""
+    """上游转发失败（含分类信息），供 Forwarder 决定重试策略。
 
-    def __init__(self, kind: ErrorKind, status: int | None = None, detail: str = "") -> None:
+    retry_after: 上游 Retry-After 头给出的重试秒数（可选，B3 FR8）。
+    """
+
+    def __init__(
+        self,
+        kind: ErrorKind,
+        status: int | None = None,
+        detail: str = "",
+        retry_after: int | None = None,
+    ) -> None:
         super().__init__(f"{kind.value}: {detail}")
         self.kind = kind
         self.status = status
         self.detail = detail
+        self.retry_after = retry_after
 
 
 def classify_upstream_status(status: int | None, body: str = "") -> ErrorKind:

@@ -34,16 +34,27 @@ class Account:
     cooldown_until: datetime | None = None
     last_error: str | None = field(default=None)
     error_count: int = field(default=0)
+    # 连续失败次数（B3：达到阈值自动禁用）
+    consecutive_failures: int = field(default=0)
 
     def public_view(self) -> dict:
-        """对外渲染视图：不包含 api_key。"""
+        """对外渲染视图：不包含 api_key。
+
+        cooldown_seconds_remaining: 冷却中剩余秒数（null = 未在冷却）。
+        """
+        remaining = None
+        if self.cooldown_until is not None:
+            delta = self.cooldown_until - datetime.now()
+            remaining = max(0, int(delta.total_seconds())) if delta.total_seconds() > 0 else 0
         return {
             "id": self.id,
             "name": self.name,
             "status": self.status.value,
             "cooldown_until": self.cooldown_until.isoformat() if self.cooldown_until else None,
+            "cooldown_seconds_remaining": remaining,
             "last_error": self.last_error,
             "error_count": self.error_count,
+            "consecutive_failures": self.consecutive_failures,
             "enabled": self.enabled,
         }
 
