@@ -55,13 +55,15 @@ stages:
     steps:
       - id: B1
         title: 账号池配置与状态机
-        status: in_progress
+        status: done
+        date: 2026-08-19
         prd: docs/prd/PRD-B1-accounts-pool.md
-        prd_status: approved
+        prd_status: 已验收
         modules:
           - apps/backend/src/opencode_pool/accounts/
           - apps/backend/tests/test_accounts.py
-        acceptance: 多账号加载 / 健康 / 冷却状态流转 + pytest 全绿
+          - apps/backend/tests/test_accounts_api.py
+        acceptance: 全部通过——pytest 24 + API 集成 3 passed、ruff 无警告；/api/accounts 端到端实测脱敏正确
       - id: B2
         title: Responses 协议透明转发
         status: todo
