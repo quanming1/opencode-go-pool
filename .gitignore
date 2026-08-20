@@ -26,6 +26,7 @@ coverage/
 data/
 *.db
 *.sqlite3
+logs/
 
 # 真实账号配置（含密钥，绝不入库）
 apps/backend/config/accounts.yaml
