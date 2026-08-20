@@ -166,10 +166,10 @@ stages:
     steps:
       - id: D1
         title: 日志升级（模型/token 双协议/账号模型统计/活跃 Key/剩余推测/前端分页+图表）
-        status: in_progress
+        status: done
         date: 2026-08-20
         prd: docs/prd/PRD-D1-log-upgrade.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/backend/src/opencode_pool/usage/
           - apps/backend/src/opencode_pool/store/
