@@ -41,11 +41,14 @@ class Forwarder:
         upstream_base_url: str = DEFAULT_UPSTREAM_BASE_URL,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         client: httpx.AsyncClient | None = None,
+        usage_recorder: object | None = None,
     ) -> None:
         self._pool = pool
         self._upstream_base_url = upstream_base_url.rstrip("/")
         self._timeout = timeout
         self._client = client
+        # C2：可选用量记录器（record() 签名见 usage/recorder.py）
+        self._usage = usage_recorder
 
     async def forward(self, request: Request) -> Response:
         """处理单个 Responses 请求，返回最终响应（可能已切换账号）。"""
@@ -73,6 +76,11 @@ class Forwarder:
                         retry_after=retry_after,
                         kind=exc.kind.value,
                     )
+                    # C2：记录失败用量（error_type = 错误分类）
+                    if self._usage is not None:
+                        self._usage.record(account.id, kind="error", error_type=exc.kind.value)
+                elif self._usage is not None:
+                    self._usage.record(account.id, kind="error", error_type="bad_request")
                 if exc.kind in (ErrorKind.AUTH, ErrorKind.BAD_REQUEST):
                     # 不重试：密钥失效（AUTH 已 mark_down）或请求本身问题（BAD_REQUEST）
                     return await self._error_response(exc)
@@ -134,15 +142,27 @@ class Forwarder:
 
             # 2xx：成功 → 记录成功（重置连续失败计数），再转发 body
             self._pool.record_success(account.id)
+            # C2：记录成功用量（非流式尽力提取 token；流式以请求数为主）
             if not stream:
                 body_text = await _stream_read(upstream)
+                prompt_tokens, completion_tokens = _extract_usage(body_text)
                 await upstream.aclose()
+                if self._usage is not None:
+                    self._usage.record(
+                        account.id,
+                        kind="success",
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                    )
                 response = Response(
                     content=body_text,
                     status_code=status,
                     media_type=upstream.headers.get("content-type", "application/json"),
                 )
             else:
+                # 流式：计入请求量（token 无法精确，见 PRD-C2 §3 边界）
+                if self._usage is not None:
+                    self._usage.record(account.id, kind="success")
                 # 流式：把上游流包进可关闭的迭代器，响应发送完毕才关闭上游
                 response = StreamingResponse(
                     content=_closing_aiter(upstream),
@@ -233,6 +253,25 @@ def _safe_detail(kind: ErrorKind, status: int, body: str) -> str:
     if len(snippet) > 200:
         snippet = snippet[:200] + "..."
     return snippet or f"http {status}"
+
+
+def _extract_usage(body: str) -> tuple[int, int]:
+    """从 Responses 响应体 JSON 提取 prompt/completion tokens。
+
+    缺失/解析失败返回 (0,0)（PRD-C2 边界：尽力而为）。
+    """
+    import json
+
+    try:
+        data = json.loads(body) if body.strip() else {}
+    except json.JSONDecodeError:
+        return 0, 0
+    usage = data.get("usage") if isinstance(data, dict) else None
+    if not isinstance(usage, dict):
+        return 0, 0
+    prompt = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
+    completion = usage.get("completion_tokens") or usage.get("output_tokens") or 0
+    return int(prompt or 0), int(completion or 0)
 
 
 def _parse_retry_after(value: str | None) -> int | None:

@@ -8,10 +8,10 @@
 |---|---|
 | 阶段 | C2 |
 | 名称 | 用量统计与轮换趋势（后端统计 + 前端 ECharts） |
-| 状态 | approved |
+| 状态 | 已验收 |
 | 创建日期 | 2026-08-20 |
 | 定稿日期 | 2026-08-20 |
-| 验收日期 | — |
+| 验收日期 | 2026-08-20 |
 | 关联文档 | docs/TODO.yaml 阶段 C2；docs/prd/PRD-B2（转发）PRD-B4（持久化）；前端 App.tsx / Dashboard |
 
 ## 1. 背景与目标
@@ -161,3 +161,4 @@ apps/web/src/features/charts/
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-20 | 初始定稿 | — |
+| 2026-08-20 | 验收通过：pytest 70 passed、vitest 13 passed、build 成功；/api/stats、/api/switch-history 端到端正常；UI 目检直角/无阴影/白底/图表 canvas 渲染 | 阶段 C2 完成 |

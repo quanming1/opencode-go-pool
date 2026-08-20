@@ -4,7 +4,16 @@ import App from "../App";
 
 // Dashboard 依赖轮询 hook → 直接 mock 掉，App 只验证页头结构
 vi.mock("../features/dashboard/useAccountPolling", () => ({
-  useAccountPolling: () => ({ accounts: [], error: null, loading: false }),
+  useAccountPolling: () => ({
+    accounts: [],
+    stats: null,
+    switchEvents: [],
+    error: null,
+    loading: false,
+  }),
+}));
+vi.mock("../features/charts/UsageCharts", () => ({
+  UsageCharts: () => <div data-testid="usage-chart" />,
 }));
 
 describe("App", () => {

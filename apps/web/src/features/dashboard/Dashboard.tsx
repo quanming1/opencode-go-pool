@@ -1,14 +1,15 @@
 import { useAccountPolling } from "./useAccountPolling";
 import { SummaryCards } from "./SummaryCards";
 import { AccountCard } from "./AccountCard";
+import { UsageCharts } from "../charts/UsageCharts";
+import { SwitchTimeline } from "../charts/SwitchTimeline";
 
 /**
- * 账号状态大盘（C1 容器）：
- * 轮询 /api/accounts → 统计摘要 + 账号卡片列表。
- * 空态 / 加载 / 错误态（PRD-C1 FR5 / AC2 / AC4）。
+ * 账号状态大盘（C1 + C2 容器）：
+ * 轮询 accounts / stats / switch-history → 统计摘要 + 账号卡片 + 用量趋势图 + 轮换时间线。
  */
 export function Dashboard() {
-  const { accounts, error, loading } = useAccountPolling();
+  const { accounts, stats, switchEvents, error, loading } = useAccountPolling();
 
   return (
     <div className="dashboard">
@@ -16,7 +17,7 @@ export function Dashboard() {
 
       {error && (
         <p className="dashboard-error" role="alert">
-          无法刷新账号状态: {error}（显示上次数据）
+          无法刷新大盘数据: {error}（显示上次数据）
         </p>
       )}
 
@@ -29,6 +30,16 @@ export function Dashboard() {
           accounts.map((a) => <AccountCard key={a.id} account={a} />)
         )}
       </div>
+
+      <section className="card">
+        <h2 className="card-title">用量趋势（近24h）</h2>
+        {stats ? <UsageCharts stats={stats} /> : <p className="dashboard-empty">暂无用量数据</p>}
+      </section>
+
+      <section className="card">
+        <h2 className="card-title">轮换事件</h2>
+        <SwitchTimeline events={switchEvents} />
+      </section>
     </div>
   );
 }

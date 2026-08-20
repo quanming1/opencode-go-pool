@@ -35,6 +35,17 @@ CREATE TABLE IF NOT EXISTS switch_history (
     kind TEXT NOT NULL,
     reason TEXT
 );
+CREATE TABLE IF NOT EXISTS usage_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    error_type TEXT,
+    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    request_count INTEGER NOT NULL DEFAULT 1,
+    model TEXT
+);
 """
 
 _UPSERT_ACCOUNT = """
@@ -54,9 +65,15 @@ ON CONFLICT(id) DO UPDATE SET
 class AccountStore:
     """SQLite 持久化仓库。所有方法在连接异常时安全降级（不抛）。"""
 
-    def __init__(self, db_path: str, history_limit: int = DEFAULT_HISTORY_LIMIT) -> None:
+    def __init__(
+        self,
+        db_path: str,
+        history_limit: int = DEFAULT_HISTORY_LIMIT,
+        usage_limit: int = 2000,
+    ) -> None:
         self._db_path = str(db_path)
         self._history_limit = history_limit
+        self._usage_limit = usage_limit
         self._conn: sqlite3.Connection | None = None
         self._available = False
         self._connect()
@@ -70,7 +87,9 @@ class AccountStore:
             path = Path(self._db_path)
             if path.parent and not path.parent.exists():
                 path.parent.mkdir(parents=True, exist_ok=True)
-            self._conn = sqlite3.connect(self._db_path)
+            self._conn = sqlite3.connect(
+                self._db_path, check_same_thread=False
+            )
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(_SCHEMA)
             self._conn.commit()
@@ -162,6 +181,111 @@ class AccountStore:
         except sqlite3.Error as exc:
             logger.warning("[store] 读切换历史失败: %s", exc)
             return []
+
+    # ---- C2：用量统计 ----
+
+    def save_usage(
+        self,
+        ts: str,
+        account_id: str,
+        kind: str,
+        error_type: str | None = None,
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+        model: str | None = None,
+    ) -> None:
+        """追加一条用量事件并裁剪到最近 N 条（默认 2000）。"""
+        if not self._available or self._conn is None:
+            return
+        try:
+            self._conn.execute(
+                "INSERT INTO usage_events (ts, account_id, kind, error_type, "
+                "prompt_tokens, completion_tokens, request_count, model) "
+                "VALUES (?, ?, ?, ?, ?, ?, 1, ?)",
+                (ts, account_id, kind, error_type, prompt_tokens, completion_tokens, model),
+            )
+            self._conn.execute(
+                "DELETE FROM usage_events WHERE id NOT IN "
+                "(SELECT id FROM usage_events ORDER BY id DESC LIMIT ?)",
+                (self._usage_limit,),
+            )
+            self._conn.commit()
+        except sqlite3.Error as exc:
+            logger.warning("[store] 写用量事件失败: %s", exc)
+
+    def aggregate_usage(self, hours: int = 24) -> dict:
+        """按小时桶聚合用量；返回 buckets / totals / per_account（PRD-C2 FR3）。"""
+        empty = {
+            "hours": hours,
+            "totals": {
+                "request_count": 0,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "error_count": 0,
+            },
+            "per_account": [],
+            "buckets": [],
+        }
+        if not self._available or self._conn is None:
+            return empty
+        try:
+            # 小时桶（strftime 的偏移量用参数拼接，避免拼串注入）
+            offset = f"-{int(hours)} hours"
+            rows = self._conn.execute(
+                "SELECT strftime('%Y-%m-%dT%H:00:00', ts, ?) AS bucket, "
+                "SUM(request_count), SUM(prompt_tokens), SUM(completion_tokens), "
+                "SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END) "
+                "FROM usage_events "
+                "WHERE ts >= strftime('%Y-%m-%dT%H:%M:%S','now', ?) "
+                "GROUP BY bucket ORDER BY bucket",
+                (offset, offset),
+            ).fetchall()
+            buckets = [
+                {
+                    "ts": r[0],
+                    "request_count": int(r[1] or 0),
+                    "prompt_tokens": int(r[2] or 0),
+                    "completion_tokens": int(r[3] or 0),
+                    "error_count": int(r[4] or 0),
+                }
+                for r in rows
+            ]
+            # 汇总
+            total = self._conn.execute(
+                "SELECT SUM(request_count), SUM(prompt_tokens), SUM(completion_tokens), "
+                "SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END) FROM usage_events"
+            ).fetchone()
+            totals = {
+                "request_count": int(total[0] or 0),
+                "prompt_tokens": int(total[1] or 0),
+                "completion_tokens": int(total[2] or 0),
+                "error_count": int(total[3] or 0),
+            }
+            # 按账号
+            per = self._conn.execute(
+                "SELECT account_id, SUM(request_count), SUM(prompt_tokens), "
+                "SUM(completion_tokens), SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END) "
+                "FROM usage_events GROUP BY account_id ORDER BY SUM(request_count) DESC"
+            ).fetchall()
+            per_account = [
+                {
+                    "account_id": r[0],
+                    "request_count": int(r[1] or 0),
+                    "prompt_tokens": int(r[2] or 0),
+                    "completion_tokens": int(r[3] or 0),
+                    "error_count": int(r[4] or 0),
+                }
+                for r in per
+            ]
+            return {
+                "hours": hours,
+                "totals": totals,
+                "per_account": per_account,
+                "buckets": buckets,
+            }
+        except sqlite3.Error as exc:
+            logger.warning("[store] 聚合用量失败: %s", exc)
+            return empty
 
     def close(self) -> None:
         if self._conn is not None:
