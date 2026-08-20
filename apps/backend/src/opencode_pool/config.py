@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     max_consecutive_failures: int = 3
     # B4：SQLite 状态持久化
     db_path: str = "data/opencode_pool.db"
+    # C5：额度查询缓存与超时
+    quota_cache_ttl_seconds: int = 60
+    quota_timeout_seconds: float = 10.0
 
     # 严格模式：环境里出现未定义字段时直接报错，防配置漂移
     model_config = SettingsConfigDict(

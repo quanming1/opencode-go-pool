@@ -8,10 +8,10 @@
 |---|---|
 | 阶段 | C5 |
 | 名称 | 账号额度展示 |
-| 状态 | approved |
+| 状态 | 已验收 |
 | 创建日期 | 2026-08-20 |
 | 定稿日期 | 2026-08-20 |
-| 验收日期 | — |
+| 验收日期 | 2026-08-20 |
 | 关联文档 | docs/TODO.yaml 阶段 C5；PRD-C1（大盘）/ PRD-C3（Tab 管理）遗留需求重启 |
 
 ## 1. 背景与目标
@@ -62,17 +62,15 @@ Authorization: Bearer <OPENCODE_GO_API_KEY>
   `{account.base_url}/usage`（Authorization: Bearer 账号密钥），解析 rolling/weekly/monthly
   三窗口；单账号失败（网络/4xx/解析异常）不影响其他账号，该账号返回 `quota: null` + `error` 摘要。
 - [ ] FR2 TTL 缓存：服务端缓存额度结果，默认 60 秒（`QUOTA_CACHE_TTL_SECONDS`）；
-  缓存期内重复请求不再打上游；`?refresh=1` 强制绕过缓存重新查询。前端轮询（10s）
-  因缓存兜底，上游实际压力 ≤ 每分钟 1 轮。
-- [ ] FR3 查询 API：`GET /api/quota?refresh=0|1` 返回每账号额度 + 全池汇总 +
-  本次取数时间；响应不含任何密钥。
-- [ ] FR4 重置倒计时：服务端计算 `resets_in_seconds`（`resetsAt - now`，向下取整，
-  已过期为 0），前端渲染为「重置于 57 分钟」「重置于 3 天 18 小时」「重置于 30 天 0 小时」。
-- [ ] FR5 账号卡额度区块：AccountCard 在状态行下方展示三行窗口数据
-  （滚动/周/月），每行 = 窗口名 + 已用百分比 + 细进度条（div 宽度，无圆角无阴影）+
-  重置倒计时；`status=rate-limited` 的窗口百分比与进度条标红（语义色）；无额度数据
-  （查询失败/未取到）显示「额度未知」。
-- [ ] FR6 额度总览卡：SummaryCards 新增第 4 张卡「额度总览」：
+- [ ] FR6 额度总览卡：SummaryCards 新增第 4 张卡「总额度」：
+  - 总分配额度：滚动 `$12 × enabled 账号数`、每周 `$30 × enabled 账号数`、每月 `$60 × enabled 账号数`；
+  - 估算已用：仅对查询成功账号按 `percent × 单账号计划上限` 折算并求和，标注「估算已用」而不是精确账单；
+  - 同时保留可用额度账号 `rolling status=ok / queried` 与三个窗口平均已用百分比；查询失败账号不计入估算已用，但仍计入总分配额度。
+  - 当前 OpenCode Go 计划上限常量来自官方文档/实测语义：rolling=$12、weekly=$30、monthly=$60；代码集中定义，未来计划变化只改一处。
+- [ ] FR7 手动刷新：UsagePanel 额度区提供「刷新额度」按钮，调 `GET /api/quota?refresh=1`
+  强制重新查询；按钮请求期间显示加载态，失败提示错误（保留上次数据）。
+- [ ] FR8 配置项：`QUOTA_CACHE_TTL_SECONDS`（默认 60）、`QUOTA_TIMEOUT_SECONDS`
+  （默认 10，单账号额度请求超时）写入 `.env.example` 与 README 配置表。
   可用额度账号 X/N（rolling 窗口 status=ok 的账号数 / 已查询账号数）、
   滚动均值 P%、周均值 P%、月均值 P%（参与账号 = 查询成功的账号）。
 - [ ] FR7 手动刷新：UsagePanel 额度区提供「刷新额度」按钮，调 `GET /api/quota?refresh=1`
@@ -163,37 +161,68 @@ percent ≥ 80 用 warn 色，其余用 ok 色；符合白色简洁规范（无�
 ### GET /api/quota
 
 ```bash
-# 常规（缓存兜底）
+# 常规（命中服务端缓存时不访问上游）
 curl http://127.0.0.1:48700/api/quota
 # 强制刷新
 curl "http://127.0.0.1:48700/api/quota?refresh=1"
 ```
 
-响应示例：
+单账号响应项：
+
+```json
+{
+  "account_id": "opencode-go-1",
+  "quota": {
+    "rolling": {
+      "status": "ok",
+      "percent": 2,
+      "resets_at": "2026-08-20T14:09:31Z",
+      "resets_in_seconds": 3431
+    },
+    "weekly": {
+      "status": "ok",
+      "percent": 74,
+      "resets_at": "2026-08-24T00:00:00Z",
+      "resets_in_seconds": 338400
+    },
+    "monthly": {
+      "status": "ok",
+      "percent": 44,
+      "resets_at": "2026-09-19T05:54:29Z",
+      "resets_in_seconds": 2598836
+    }
+  },
+  "error": null
+}
+```
+
+全池响应：
 
 ```json
 {
   "accounts": [
-    {
-      "account_id": "opencode-go-1",
-      "quota": {
-        "rolling":  {"status": "ok", "percent": 2,  "resets_at": "2026-08-20T14:09:31Z", "resets_in_seconds": 3431},
-        "weekly":   {"status": "ok", "percent": 74, "resets_at": "2026-08-24T00:00:00Z", "resets_in_seconds": 338400},
-        "monthly":  {"status": "ok", "percent": 44, "resets_at": "2026-09-19T05:54:29Z", "resets_in_seconds": 2598836}
-      },
-      "error": null
-    },
-    {
-      "account_id": "opencode-go-2",
-      "quota": null,
-      "error": "http 401"
-    }
+    {"account_id": "opencode-go-1", "quota": {"rolling": {}, "weekly": {}, "monthly": {}}, "error": null},
+    {"account_id": "opencode-go-2", "quota": null, "error": "http 401"}
   ],
-  "summary": {"total_accounts": 6, "queried": 6, "ok_accounts": 5, "rolling_available": 5, "rolling_avg_percent": 18, "weekly_avg_percent": 60, "monthly_avg_percent": 42},
+  "summary": {
+    "total_accounts": 6,
+    "queried": 6,
+    "ok_accounts": 5,
+    "rolling_available": 5,
+    "rolling_avg_percent": 18,
+    "weekly_avg_percent": 60,
+    "monthly_avg_percent": 42,
+    "allocated_usd": {"rolling": 72, "weekly": 180, "monthly": 360},
+    "estimated_used_usd": {"rolling": 8, "weekly": 117, "monthly": 144}
+  },
   "fetched_at": "2026-08-20T09:00:00+00:00",
   "cached": false
 }
 ```
+
+字段口径：`percent` 是上游返回的已用百分比；`allocated_usd` 是 enabled 账号数乘以
+单账号 Go 计划窗口上限；`estimated_used_usd` 仅按百分比折算，是近似展示，不代表精确账单。
+额度查询失败的账号仍计入 `allocated_usd`，但不计入 `ok_accounts`、均值与 `estimated_used_usd`。
 
 ### 配置（.env 新增）
 
@@ -204,19 +233,23 @@ curl "http://127.0.0.1:48700/api/quota?refresh=1"
 
 ## 5. 验收标准
 
-- [ ] AC1：`pytest` 全绿——quota service 单测覆盖：正常解析（三窗口+倒计时）、TTL 缓存命中
+- [x] AC1：`pytest` 全绿（123 passed）——quota service 单测覆盖：正常解析（三窗口+倒计时）、TTL 缓存命中
   （第二次调用 mock transport 计数为 1 轮）、force 刷新、单账号 401 降级（quota=null + error，
-  其余账号正常）、summary 均值与 available 计算、异常响应缺 usage 字段降级。
-- [ ] AC2：`GET /api/quota` 集成测试：fake upstream 返回固定 usage，断言响应结构
+  其余账号正常）、summary 均值/available/总分配额度/估算已用计算、异常响应缺 usage 字段降级。
+- [x] AC2：`GET /api/quota` 集成测试：fake upstream 返回固定 usage，断言响应结构
   （accounts/summary/fetched_at/cached）与脱敏（无 sk- 明文）。
-- [ ] AC3：真实上游实测：本机 6 账号 `curl /api/quota?refresh=1` 返回真实百分比与重置时间；
-  `cached=false` → 立即再查 `cached=true`。
-- [ ] AC4：前端 vitest 全绿——AccountCard 额度区块（三窗口行 + rate-limited 标红 + 无数据显示额度未知）、
-  SummaryCards 额度总览卡（X/N 与均值）、quotaFormat 倒计时文案三分段。
-- [ ] AC5：UsagePanel「刷新额度」按钮：点击走 `?refresh=1`，busy 态，失败保留旧数据并提示。
-- [ ] AC6：UI 目检：账号卡额度进度条无圆角无阴影；白色简洁规范不破（radius 0 / 无 shadow）。
-- [ ] AC7：`ruff` 0 告警；前端 `eslint` 0 告警、`build` 成功。
-- [ ] AC8：文档同步——README API 表加 /api/quota、配置表加两个新变量、docs/usage.md 大盘功能描述更新。
+- [x] AC3：真实上游实测通过：本机 6 账号 `GET /api/quota?refresh=1` 全部返回真实百分比与重置时间
+  （go-1 周窗口 100% rate-limited、go-2 滚动窗口 100% rate-limited，与官方控制台一致）；
+  `cached=false` → 立即再查 `cached=true` 且 fetched_at 不变。
+- [x] AC4：前端 vitest 全绿（31 passed）——AccountCard 额度区块（三窗口行 + rate-limited 标红 + 无数据显示额度未知）、
+  SummaryCards 额度总览卡（总分配额度/估算已用美元、X/N 与均值）、quotaFormat 倒计时文案三分段。
+- [x] AC5：UsagePanel「刷新额度」按钮实测：网络面板确认走 `?refresh=1`（200 OK），
+  busy 态与失败保留旧数据由 hook 测试覆盖。
+- [x] AC6：UI 目检通过（Playwright DOM 断言）：额度区块/进度条/汇总卡 borderRadius=0、
+  boxShadow=none 零违规；rate-limited 窗口红色进度条 2 处与 API 实测一致。
+- [x] AC7：`ruff` 0 告警；前端 `eslint` 0 告警、`build` 成功。
+- [x] AC8：文档同步完成——README API 表加 /api/quota、配置表加两个新变量、docs/usage.md 3.4/3.5 更新、
+  后端 README 模块表加 quota。
 
 ## 6. 测试计划
 
@@ -242,8 +275,7 @@ curl "http://127.0.0.1:48700/api/quota?refresh=1"
 | 额度查询拖慢大盘首屏 | 并发查询 + 10s 超时；失败即时降级显示未知 |
 | percent 语义误读（已用 vs 剩余） | 以实测为准（rate-limited 时=100），文案统一「已用 X%」 |
 
-## 9. 变更记录
-
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-20 | 初始定稿：官方额度接口（GET /zen/go/v1/usage）实测可用，重启 C3 搁置的额度展示需求 | 知乎文章（zhuanlan.zhihu.com/p/2073771274376056874）指出接口已上线，本机 6 key 实测 200 OK 确认 |
+| 2026-08-20 | 扩展 FR6：总览新增滚动/周/月总分配额度与按百分比折算的估算已用美元，并在 API summary 中返回 allocated_usd/estimated_used_usd | 用户明确要求展示每个 key 额度以及多个 key 合计总额度；上游只提供百分比，必须明确标注估算口径 |

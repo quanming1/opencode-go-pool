@@ -45,6 +45,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
         try:
             yield
         finally:
+            await app.state.quota_service.close()
             task.cancel()
             try:
                 await task
@@ -62,6 +63,16 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
     recorder = UsageRecorder(store)
     app.state.usage_recorder = recorder
+
+    # C5：额度查询服务（官方 usage 接口 + TTL 缓存；失败降级不影响转发）
+    from opencode_pool.quota.service import QuotaService
+
+    app.state.quota_service = QuotaService(
+        pool,
+        cache_ttl=settings.quota_cache_ttl_seconds,
+        timeout=settings.quota_timeout_seconds,
+        upstream_base_url=settings.upstream_base_url,
+    )
 
     # C3：网关 key 管理（本地单用户默认免鉴权；.env.keys 配 GATEWAY_AUTH=on 启用校验）
     key_manager = KeyManager(
@@ -87,8 +98,10 @@ def create_app(config_path: str | None = None) -> FastAPI:
     app.include_router(usage_router)
     app.include_router(keys_router)
     from opencode_pool.api.events import router as events_router
+    from opencode_pool.api.quota import router as quota_router
 
     app.include_router(events_router)
+    app.include_router(quota_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
