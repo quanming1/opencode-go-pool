@@ -10,7 +10,9 @@ from opencode_pool import __version__
 from opencode_pool.accounts.loader import load_accounts
 from opencode_pool.accounts.pool import AccountPool
 from opencode_pool.api.accounts import router as accounts_router
+from opencode_pool.api.keys import router as keys_router
 from opencode_pool.api.usage import router as usage_router
+from opencode_pool.auth.gateway_key import KeyManager
 from opencode_pool.config import settings
 from opencode_pool.proxy import router as proxy_router
 from opencode_pool.proxy.forwarder import Forwarder
@@ -57,6 +59,10 @@ def create_app(config_path: str | None = None) -> FastAPI:
     recorder = UsageRecorder(store)
     app.state.usage_recorder = recorder
 
+    # C3：网关 key 管理（master key 来自 .env.keys；鉴权未启用时兼容放行）
+    key_manager = KeyManager(store, master_key=_load_master_key())
+    app.state.key_manager = key_manager
+
     # 代理转发器（B2：多账号外层 + 透明转发；C2：记录用量）
     app.state.forwarder = Forwarder(
         pool=pool,
@@ -68,6 +74,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
     app.include_router(accounts_router)
     app.include_router(proxy_router)
     app.include_router(usage_router)
+    app.include_router(keys_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -75,6 +82,13 @@ def create_app(config_path: str | None = None) -> FastAPI:
         return {"status": "ok", "version": __version__}
 
     return app
+
+
+def _load_master_key() -> str:
+    """从 .env.keys 读取 GATEWAY_MASTER_KEY（可选，C3 FR2）。"""
+    from opencode_pool.accounts.loader import _parse_env_file
+
+    return _parse_env_file(".env.keys").get("GATEWAY_MASTER_KEY", "").strip()
 
 
 def _build_pool(config_path: str | None) -> tuple[AccountPool, AccountStore]:

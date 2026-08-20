@@ -36,6 +36,11 @@ def _app_with_forwarder(
     forwarder = Forwarder(pool=pool, upstream_base_url="http://fake/v1", timeout=5, client=client)
     app.state.account_pool = pool
     app.state.forwarder = forwarder
+    # C3：空 KeyManager（鉴权未启用 → 转发放行，兼容测试语义）
+    from opencode_pool.auth.gateway_key import KeyManager
+    from opencode_pool.store.sqlite_store import AccountStore
+
+    app.state.key_manager = KeyManager(AccountStore(":memory:"))
 
     declare_routes(app)
     return app, TestClient(app)
@@ -229,53 +234,52 @@ def test_chat_completions_forwards_to_chat_endpoint():
     assert urls == ["http://fake/v1/chat/completions"]
 
 
-def test_chat_completions_records_usage():
+def test_chat_completions_records_usage(tmp_path):
     """chat completions 成功响应的 usage（prompt/completion_tokens）计入统计。"""
-    import tempfile
-    from pathlib import Path
 
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
+    from opencode_pool.auth.gateway_key import KeyManager
     from opencode_pool.proxy.forwarder import Forwarder
     from opencode_pool.proxy.router import router as proxy_router
     from opencode_pool.store.sqlite_store import AccountStore
     from opencode_pool.usage.recorder import UsageRecorder
 
-    with tempfile.TemporaryDirectory() as td:
-        store = AccountStore(str(Path(td) / "cc.db"))
-        pool = AccountPool(
-            accounts=[Account(id="a1", name="A", api_key="sk-1111")], store=store
-        )
-        rec = UsageRecorder(store)
+    store = AccountStore(str(tmp_path / "cc.db"))
+    pool = AccountPool(
+        accounts=[Account(id="a1", name="A", api_key="sk-1111")], store=store
+    )
+    rec = UsageRecorder(store)
 
-        transport = httpx.MockTransport(
-            lambda req: httpx.Response(
-                200,
-                json={
-                    "choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
-                    "usage": {"prompt_tokens": 8, "completion_tokens": 3},
-                },
-            )
+    transport = httpx.MockTransport(
+        lambda req: httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 8, "completion_tokens": 3},
+            },
         )
-        app = FastAPI()
-        app.state.account_pool = pool
-        app.state.usage_recorder = rec
-        app.state.forwarder = Forwarder(
-            pool=pool,
-            upstream_base_url="http://fake/v1",
-            client=httpx.AsyncClient(transport=transport),
-            usage_recorder=rec,
-        )
-        app.include_router(proxy_router)
-        client = TestClient(app)
+    )
+    app = FastAPI()
+    app.state.account_pool = pool
+    app.state.usage_recorder = rec
+    app.state.key_manager = KeyManager(store)
+    app.state.forwarder = Forwarder(
+        pool=pool,
+        upstream_base_url="http://fake/v1",
+        client=httpx.AsyncClient(transport=transport),
+        usage_recorder=rec,
+    )
+    app.include_router(proxy_router)
+    client = TestClient(app)
 
-        client.post(
-            "/api/v1/chat/completions",
-            json={"model": "kimi-k2.5", "messages": [{"role": "user", "content": "hi"}]},
-        )
-        stats = store.aggregate_usage(hours=24)
-        assert stats["totals"]["request_count"] == 1
-        assert stats["totals"]["prompt_tokens"] == 8
-        assert stats["totals"]["completion_tokens"] == 3
-        store.close()
+    client.post(
+        "/api/v1/chat/completions",
+        json={"model": "kimi-k2.5", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    stats = store.aggregate_usage(hours=24)
+    assert stats["totals"]["request_count"] == 1
+    assert stats["totals"]["prompt_tokens"] == 8
+    assert stats["totals"]["completion_tokens"] == 3
+    store.close()

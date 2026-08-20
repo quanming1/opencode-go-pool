@@ -26,3 +26,4 @@
 
 - B2 扩展：POST /api/v1/chat/completions 透明转发（OpenCode 的 kimi/minimax/glm/deepseek 等 completions 模型；与 /responses 共用账号池与切换）
 - 测试隔离：conftest fixture 用 tmp_path 隔离 config 与 DB，不再触碰本地真实账号配置与生产数据库
+- C3 分 Tab 管理与网关鉴权：左右分栏（用量信息/API Key 管理）；账号控制按钮（清除冷却/启用/禁用）；网关 key 生成/吊销 + 转发端点 Bearer 鉴权（无 key 配置兼容放行）（pytest 84 + vitest 17 passed）

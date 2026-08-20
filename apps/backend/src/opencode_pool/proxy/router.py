@@ -1,16 +1,23 @@
-"""代理 API 路由（B2）：/api/v1/responses 与 /api/v1/models。
+"""代理 API 路由（B2/C3）：/api/v1/responses、/api/v1/chat/completions 与 /api/v1/models。
 
 路由从 app.state 读取 Forwarder（由应用工厂注入，保证账号池共享）。
+C3：三个端点挂 Bearer 鉴权（无任何 key 配置时兼容放行，见 api/auth.py）。
 """
 
 import json
 import logging
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
+
+from opencode_pool.api.auth import require_gateway_key
 
 logger = logging.getLogger("opencode_pool.proxy.router")
 
-router = APIRouter(prefix="/api/v1", tags=["proxy"])
+router = APIRouter(
+    prefix="/api/v1",
+    tags=["proxy"],
+    dependencies=[Depends(require_gateway_key)],
+)
 
 
 def _get_forwarder(request: Request):

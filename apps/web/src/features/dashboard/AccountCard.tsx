@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { PoolAccount } from "../../types/pool";
 import { StatusBadge } from "./StatusBadge";
 
@@ -10,8 +11,14 @@ function formatRemaining(seconds: number | null): string {
   return `${h}h ${m}m ${s}s`;
 }
 
-/** 单账号卡片（PRD-C1 FR2/FR3）。api_key 绝不应在此处出现（后端已脱敏）。 */
-export function AccountCard({ account }: { account: PoolAccount }) {
+/** 单账号卡片（PRD-C1 FR2/FR3；C3 增加 children 插槽放控制按钮）。api_key 绝不应在此处出现（后端已脱敏）。 */
+export function AccountCard({
+  account,
+  children,
+}: {
+  account: PoolAccount;
+  children?: ReactNode;
+}) {
   const dimmed = !account.enabled || account.status === "disabled";
   return (
     <section
@@ -44,6 +51,7 @@ export function AccountCard({ account }: { account: PoolAccount }) {
           {account.last_error}
         </div>
       )}
+      {children && <div className="account-card__controls">{children}</div>}
     </section>
   );
 }
