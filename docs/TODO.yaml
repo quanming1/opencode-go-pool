@@ -138,8 +138,12 @@ stages:
         acceptance: CI 绿（backend pytest/ruff + web eslint/vitest/build）
       - id: G2
         title: 文档与示例
-        status: todo
+        status: in_progress
+        prd: docs/prd/PRD-G2-docs.md
+        prd_status: approved
         modules:
           - README.md
+          - apps/backend/README.md
+          - apps/web/README.md
           - docs/usage.md
-        acceptance: 从零启动到代理可用的一页说明
+        acceptance: 四文档齐备（根/后端/前端/使用手册）+ 命令实测可跑 + API 汇总覆盖全部端点
