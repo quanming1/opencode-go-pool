@@ -296,3 +296,20 @@ stages:
           - apps/web/src/i18n/messages.ts
           - apps/web/src/index.css
         acceptance: 扫描确认的 5 处死代码全部清除（describe_key / has_any_gateway_key / logging_setup 模块 / chart.tooltip.success 孤儿 key / .card-text 死类），连带 import 同步移除；复核扫描无新孤儿；pytest 138 + ruff 0 + vitest 55 + eslint 0 + build 全绿；playwright 抽查无回归
+      - id: G5
+        title: 代码优化 · 去除冗余代码（第二轮：图表样板收敛 + 死接口清理）
+        status: in_progress
+        date: 2026-08-21
+        prd: docs/prd/PRD-G5-chart-refactor.md
+        prd_status: 草稿
+        modules:
+          - apps/web/src/features/charts/useEChart.ts
+          - apps/web/src/features/charts/UsageCharts.tsx
+          - apps/web/src/features/charts/ModelUsageChart.tsx
+          - apps/web/src/features/charts/AccountLoadChart.tsx
+          - apps/web/src/features/charts/ProtocolChart.tsx
+          - apps/web/src/features/charts/ErrorTypeChart.tsx
+          - apps/web/src/features/charts/SuccessRateTrendChart.tsx
+          - apps/web/src/features/charts/AccountTokenShareChart.tsx
+          - apps/web/src/features/dashboard/useAccountPolling.ts
+        acceptance: 7 个 ECharts 组件的 init/resize/dispose 样板收敛为 useEChart（轮询 stats 更新不再重建实例）；AccountsState 死接口删除且全库无引用；vitest 全过 + eslint 0 + build 通过；playwright 实测 7 图渲染无回归
