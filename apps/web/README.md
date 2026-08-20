@@ -1,6 +1,6 @@
 # OpenCode Go Pool — 前端监控台
 
-React + Vite + TypeScript + ECharts 实现的账号状态大盘：账号卡片、用量趋势图、轮换事件时间线。
+React + Vite + TypeScript + ECharts 实现的账号状态大盘：账号卡片、用量趋势图、统一事件时间线。
 
 ## 技术栈
 
@@ -38,14 +38,14 @@ pnpm preview     # 预览生产构建
 apps/web/src/
 ├─ main.tsx / App.tsx          # 入口与单页容器（页头 + Dashboard）
 ├─ index.css                   # 全局设计 token 与基础样式
-├─ types/pool.ts               # 后端响应类型（AccountStatus / Stats / SwitchEvent）
-├─ services/api.ts             # API 客户端（accounts / stats / switch-history）
+├─ types/pool.ts               # 后端响应类型（AccountStatus / Stats / EventItem）
+├─ services/api.ts             # API 客户端（accounts / stats / events）
 ├─ features/
 │  ├─ dashboard/               # 大盘：统计摘要、账号卡片、状态徽章、轮询 hook
-│  └─ charts/                  # 用量趋势图（ECharts）与轮换事件时间线
+│  └─ charts/                  # 用量趋势图（ECharts）与统一事件时间线
 └─ test/                       # 测试设置与 App 测试
 ```
 
 ## 数据流
 
-`useAccountPolling`（10s 轮询）→ `Promise.all` 拉取 `/api/accounts` + `/api/stats` + `/api/switch-history` → Dashboard 组装渲染；后端不可用时保留上次数据并显示警告（不清空 UI）。
+`useAccountPolling`（10s 轮询）→ `Promise.all` 拉取 `/api/accounts` + `/api/stats` + `/api/events` → UsagePanel 组装渲染；后端不可用时保留上次数据并显示警告（不清空 UI）。

@@ -9,47 +9,48 @@
     disabled --enable()--> 恢复（若原本 cooldown 且未到期，回到 cooldown）
 
 线程安全：所有可变操作用 lock 保护。
-切换历史：最近 N 条事件环形日志（B3 FR5）。
+统一事件（C4）：状态变更点向 event_recorder 发射 key_cooldown_started /
+key_cooldown_completed / key_cooldown_cleared / key_disabled / key_enabled
+事件；旧 switch_history 环形历史已删除（PRD-C4 §3）。
 """
 
 import logging
 import threading
-from collections import deque
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from opencode_pool.accounts.models import Account, AccountStatus, mask_api_key
+from opencode_pool.events.recorder import EventType
 
 logger = logging.getLogger("opencode_pool.accounts.pool")
 
 # 默认冷却 TTL：5 小时（对齐 OpenCode Go 5 小时窗口语义）
 DEFAULT_COOLDOWN_SECONDS = 5 * 60 * 60
-# 默认切换历史容量
-DEFAULT_HISTORY_LIMIT = 20
 # 默认连续失败自动禁用阈值
 DEFAULT_MAX_CONSECUTIVE_FAILURES = 3
 
 
 class AccountPool:
-    """多账号池：加载 + 状态机 + 脱敏视图 + 选取 + 切换历史。"""
+    """多账号池：加载 + 状态机 + 脱敏视图 + 选取 + 统一事件。"""
 
     def __init__(
         self,
         accounts: list[Account] | None = None,
         cooldown_seconds: int = DEFAULT_COOLDOWN_SECONDS,
         max_consecutive_failures: int = DEFAULT_MAX_CONSECUTIVE_FAILURES,
-        history_limit: int = DEFAULT_HISTORY_LIMIT,
         now: Callable[[], datetime] = datetime.now,
         store: object | None = None,
+        event_recorder: object | None = None,
     ) -> None:
         self._accounts: dict[str, Account] = {a.id: a for a in (accounts or [])}
         self._cooldown_seconds = cooldown_seconds
         self._max_consecutive_failures = max_consecutive_failures
-        self._history: deque[dict] = deque(maxlen=history_limit)
         self._now = now
         self._lock = threading.Lock()
         # B4：可选持久化存储（AccountStore 或兼容接口）；None = 纯内存
         self._store = store
+        # C4：可选统一事件记录器（record(type_, data, meta) duck-typing）
+        self._event_recorder = event_recorder
 
     # ---- 查询 ----
 
@@ -120,7 +121,10 @@ class AccountPool:
                 a.status = AccountStatus.DISABLED
                 a.enabled = False  # 禁用态不再参与 pick
                 a.last_error = f"auto-disabled: consecutive failures ({a.consecutive_failures})"
-                self._record_event(account_id, "auto_disable", a.last_error)
+                self._emit(
+                    EventType.KEY_DISABLED,
+                    {"account_id": account_id, "reason": a.last_error, "automatic": True},
+                )
                 self._persist(a)
                 logger.error(
                     "[accounts] %s 连续失败 %d 次（阈值 %d），自动禁用",
@@ -130,7 +134,19 @@ class AccountPool:
                 )
                 return True
 
-            self._record_event(account_id, kind, reason)
+            self._emit(
+                EventType.KEY_COOLDOWN_STARTED,
+                {
+                    "account_id": account_id,
+                    "reason": reason,
+                    "error_type": kind,
+                    "cooldown_until": (
+                        a.cooldown_until.isoformat() if a.cooldown_until else None
+                    ),
+                    "cooldown_seconds": max(1, delay),
+                    "consecutive_failures": a.consecutive_failures,
+                },
+            )
             self._persist(a)
             logger.warning(
                 "[accounts] %s 进入冷却（TTL=%ss），kind=%s 原因: %s",
@@ -147,12 +163,20 @@ class AccountPool:
             a = self._accounts.get(account_id)
             if a is None:
                 return False
+            previous_status = a.status.value
             a.status = AccountStatus.HEALTHY
             a.cooldown_until = None
             a.last_error = None
             a.error_count = 0
             a.consecutive_failures = 0
-            self._record_event(account_id, "clear", "manual clear")
+            self._emit(
+                EventType.KEY_COOLDOWN_CLEARED,
+                {
+                    "account_id": account_id,
+                    "previous_status": previous_status,
+                    "reason": "manual clear",
+                },
+            )
             self._persist(a)
             logger.info("[accounts] %s 清除状态 -> healthy", account_id)
             return True
@@ -174,7 +198,10 @@ class AccountPool:
             a.enabled = False
             a.status = AccountStatus.DISABLED
             a.last_error = reason
-            self._record_event(account_id, "disable", reason)
+            self._emit(
+                EventType.KEY_DISABLED,
+                {"account_id": account_id, "reason": reason, "automatic": False},
+            )
             self._persist(a)
             logger.warning("[accounts] %s 已禁用: %s", account_id, reason)
             return True
@@ -193,12 +220,15 @@ class AccountPool:
                 a.cooldown_until = None
                 a.error_count = 0
                 a.consecutive_failures = 0
-            self._record_event(account_id, "enable", "manual enable")
+            self._emit(
+                EventType.KEY_ENABLED,
+                {"account_id": account_id, "reason": "manual enable"},
+            )
             self._persist(a)
             logger.info("[accounts] %s 已启用", account_id)
             return True
 
-    # ---- B3：主动扫描与切换历史 ----
+    # ---- B3：主动扫描 ----
 
     def scan_cooldowns(self) -> int:
         """主动扫描冷却到期的账号并恢复 healthy，返回恢复个数（B3 FR1）。"""
@@ -216,21 +246,19 @@ class AccountPool:
                     a.last_error = None
                     a.error_count = 0
                     a.consecutive_failures = 0
-                    self._record_event(a.id, "recover", "cooldown expired")
+                    self._emit(
+                        EventType.KEY_COOLDOWN_COMPLETED,
+                        {
+                            "account_id": a.id,
+                            "previous_status": "cooldown",
+                            "reason": "cooldown expired",
+                        },
+                    )
                     self._persist(a)
                     recovered += 1
             if recovered:
                 logger.info("[accounts] 主动扫描恢复 %d 个账号", recovered)
             return recovered
-
-    def switch_history(self, limit: int = 0) -> list[dict]:
-        """切换历史（最近事件，新→旧）。"""
-        with self._lock:
-            items = list(self._history)
-            items.reverse()
-            if limit > 0:
-                items = items[:limit]
-            return items
 
     def _recover_expired(self) -> None:
         """pick 前惰性恢复（既有逻辑，scan_cooldowns 的辅助）。"""
@@ -246,26 +274,24 @@ class AccountPool:
                 a.last_error = None
                 a.error_count = 0
                 a.consecutive_failures = 0
-                self._record_event(a.id, "recover", "cooldown expired (lazy)")
+                self._emit(
+                    EventType.KEY_COOLDOWN_COMPLETED,
+                    {
+                        "account_id": a.id,
+                        "previous_status": "cooldown",
+                        "reason": "cooldown expired (lazy)",
+                    },
+                )
                 self._persist(a)
 
-    def _record_event(self, account_id: str, kind: str, reason: str) -> None:
-        """追加一条切换/状态事件到环形历史，并持久化（B4 FR5）。"""
-        self._history.append(
-            {
-                "ts": self._now().isoformat(),
-                "account_id": account_id,
-                "kind": kind,
-                "reason": reason,
-            }
-        )
-        if self._store is not None:
-            try:
-                self._store.write_event(
-                    self._now().isoformat(), account_id, kind, reason
-                )
-            except Exception:  # noqa: BLE001 - 持久化失败不影响内存态
-                pass
+    def _emit(self, type_: str, data: dict) -> None:
+        """向统一事件流发射事件（C4；记录器缺失/失败一律降级）。"""
+        if self._event_recorder is None:
+            return
+        try:
+            self._event_recorder.record(type_, data, meta={"source": "account_pool"})
+        except Exception:  # noqa: BLE001 - 事件失败不影响状态机
+            pass
 
     # ---- B4：持久化 ----
 

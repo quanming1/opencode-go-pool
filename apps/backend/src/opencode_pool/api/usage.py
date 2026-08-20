@@ -1,4 +1,7 @@
-"""用量统计与切换历史 API（C2 FR3/FR4）。"""
+"""用量统计 API（C2 FR3/FR4）：/api/stats。
+
+C4：/api/switch-history 已删除，前端统一消费 /api/events（见 api/events.py）。
+"""
 
 import json
 import logging
@@ -31,11 +34,3 @@ async def stats(request: Request, hours: int = 24) -> Response:
     recorder = _get_recorder(request)
     clamped = max(1, min(hours, 168))  # 1h - 7d
     return _json_response(recorder.stats(hours=clamped))
-
-
-@router.get("/switch-history")
-async def switch_history(request: Request, limit: int = 50) -> Response:
-    """切换事件历史（新→旧，附中文 kind_label）。"""
-    recorder = _get_recorder(request)
-    clamped = max(1, min(limit, 200))
-    return _json_response({"events": recorder.switch_history(limit=clamped)})

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from opencode_pool.accounts.models import Account, AccountStatus
 from opencode_pool.accounts.pool import AccountPool
+from opencode_pool.events.recorder import EventRecorder
 from opencode_pool.store.sqlite_store import AccountStore
 
 
@@ -128,17 +129,21 @@ def test_record_success_persists_reset(tmp_path):
 
 
 def test_history_restored_from_db(tmp_path):
-    """切换历史在重启后仍可读取（通过 store 的 load_history 校验）。"""
+    """统一事件在重启后仍可读取（C4：通过 store 的 query_events 校验）。"""
     db = str(tmp_path / "history.db")
     now = _fake_now(datetime(2026, 1, 1))
     store_a = AccountStore(db)
-    pool_a = AccountPool(accounts=_accounts(), now=now, store=store_a)
+    pool_a = AccountPool(
+        accounts=_accounts(), now=now, store=store_a, event_recorder=EventRecorder(store_a)
+    )
     pool_a.mark_down("a1", "quota", kind="quota")
     pool_a.disable("a2", "manual")
     store_a.close()
 
     store_b = AccountStore(db)
-    hist = store_b.load_history()
-    kinds = [h["kind"] for h in hist]
-    assert kinds == ["disable", "quota"]
+    rows = store_b.query_events(limit=10)
+    types = [r["type"] for r in rows]
+    assert types == ["key_disabled", "key_cooldown_started"]
+    assert rows[1]["data"]["account_id"] == "a1"
+    assert rows[1]["data"]["error_type"] == "quota"
     store_b.close()

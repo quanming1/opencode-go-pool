@@ -7,10 +7,17 @@ Forwarder 把 OpenAI Responses 请求从账号池选号后转发到上游，
 - 每次 POST /responses 独立选号 → ReAct 多轮天然跨账号轮换；
 - 流式下"首字节前"失败才重试；发出首字节后的断流不重试（避免重复文本）；
 - 400 级/401 不重试；429/5xx/网络错 mark_down 后重试下一个 healthy 账号。
+
+统一事件（C4）：
+- 每次入站请求记一条 request 事件（含 attempts 链与 request_id）；
+- 失败切换记 key_switch；全 quota/auth 失败记 all_keys_invalid；
+  全网络/服务失败或无健康账号记 all_keys_unavailable。
 """
 
 import json
 import logging
+import time
+import uuid
 from typing import Any
 
 import httpx
@@ -19,6 +26,7 @@ from fastapi.responses import StreamingResponse
 
 from opencode_pool.accounts.models import Account
 from opencode_pool.accounts.pool import AccountPool
+from opencode_pool.events.recorder import EventType
 from opencode_pool.proxy.errors import (
     ErrorKind,
     UpstreamError,
@@ -42,6 +50,7 @@ class Forwarder:
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         client: httpx.AsyncClient | None = None,
         usage_recorder: object | None = None,
+        event_recorder: object | None = None,
     ) -> None:
         self._pool = pool
         self._upstream_base_url = upstream_base_url.rstrip("/")
@@ -49,6 +58,8 @@ class Forwarder:
         self._client = client
         # C2：可选用量记录器（record() 签名见 usage/recorder.py）
         self._usage = usage_recorder
+        # C4：可选统一事件记录器（record(type_, data, meta) duck-typing）
+        self._event_recorder = event_recorder
 
     async def forward(self, request: Request, upstream_path: str = "/responses") -> Response:
         """处理单个转发请求，返回最终响应（可能已切换账号）。
@@ -63,19 +74,49 @@ class Forwarder:
         """
         payload = await request.json()
         stream = bool(payload.get("stream", False))
+        request_id = uuid.uuid4().hex
+        started = time.monotonic()
 
         # 至多尝试 enabled 账号数（每账号一次；accepted 降级用 disabled 不参与）
         attempts = max(1, self._healthy_count())
         last_error: UpstreamError | None = None
+        attempt_log: list[dict] = []
+        prev_account: Account | None = None
+        prev_error: UpstreamError | None = None
 
-        for _ in range(attempts):
+        for attempt in range(1, attempts + 1):
             account = self._pool.pick_next()
             if account is None:
                 break
+            # 上一账号失败且这次选到了另一个 → key_switch 事件
+            if prev_account is not None and prev_error is not None:
+                self._emit(
+                    EventType.KEY_SWITCH,
+                    {
+                        "from_account_id": prev_account.id,
+                        "to_account_id": account.id,
+                        "reason": prev_error.detail or prev_error.kind.value,
+                        "error_type": prev_error.kind.value,
+                        "attempt": attempt,
+                        "request_id": request_id,
+                    },
+                    meta={"source": "forwarder", "request_id": request_id},
+                )
             try:
-                return await self._forward_once(request, account, payload, stream, upstream_path)
+                response, tokens = await self._forward_once(
+                    request, account, payload, stream, upstream_path
+                )
             except UpstreamError as exc:
                 last_error = exc
+                attempt_log.append(
+                    {
+                        "account_id": account.id,
+                        "result": "error",
+                        "error_type": exc.kind.value,
+                        "status_code": exc.status,
+                        "duration_ms": int((time.monotonic() - started) * 1000),
+                    }
+                )
                 if exc.kind not in (ErrorKind.BAD_REQUEST,):
                     # 请求本身问题：不 mark_down（账号没问题，修请求即可）
                     retry_after = getattr(exc, "retry_after", None)
@@ -87,14 +128,109 @@ class Forwarder:
                     )
                     # C2：记录失败用量（error_type = 错误分类）
                     if self._usage is not None:
-                        self._usage.record(account.id, kind="error", error_type=exc.kind.value)
+                        self._usage.record(
+                            account.id, kind="error", error_type=exc.kind.value
+                        )
                 elif self._usage is not None:
                     self._usage.record(account.id, kind="error", error_type="bad_request")
+                prev_account = account
+                prev_error = exc
                 if exc.kind in (ErrorKind.AUTH, ErrorKind.BAD_REQUEST):
                     # 不重试：密钥失效（AUTH 已 mark_down）或请求本身问题（BAD_REQUEST）
+                    self._emit_request(
+                        request_id,
+                        succeeded=False,
+                        protocol=upstream_path,
+                        stream=stream,
+                        account_id=account.id,
+                        status_code=exc.status or 0,
+                        duration_ms=int((time.monotonic() - started) * 1000),
+                        attempt_log=attempt_log,
+                        model=payload.get("model"),
+                        error={"type": exc.kind.value, "message": exc.detail},
+                    )
                     return await self._error_response(exc)
                 # quota / server / network → 继续尝试下一个账号
+                continue
 
+            # 成功：记录 request 事件并返回
+            attempt_log.append(
+                {
+                    "account_id": account.id,
+                    "result": "success",
+                    "status_code": response.status_code,
+                    "duration_ms": int((time.monotonic() - started) * 1000),
+                }
+            )
+            self._emit_request(
+                request_id,
+                succeeded=True,
+                protocol=upstream_path,
+                stream=stream,
+                account_id=account.id,
+                status_code=response.status_code,
+                duration_ms=int((time.monotonic() - started) * 1000),
+                attempt_log=attempt_log,
+                model=payload.get("model"),
+                tokens=tokens,
+            )
+            return response
+
+        # 全部尝试失败 / 无健康账号：按错误构成发 all-keys 事件，再统一记 request
+        duration_ms = int((time.monotonic() - started) * 1000)
+        failed = [e for e in attempt_log if e["result"] == "error"]
+        error_types = sorted({e["error_type"] for e in failed})
+        attempted_ids = [e["account_id"] for e in attempt_log]
+        if last_error is None:
+            # pick_next 无健康账号：一张尝试都没有
+            self._emit(
+                EventType.ALL_KEYS_UNAVAILABLE,
+                {
+                    "attempted_account_ids": [],
+                    "error_types": [],
+                    "request_id": request_id,
+                    "attempt_count": 0,
+                },
+                meta={"source": "forwarder", "request_id": request_id},
+            )
+        elif error_types and set(error_types) <= {"quota", "auth"}:
+            self._emit(
+                EventType.ALL_KEYS_INVALID,
+                {
+                    "attempted_account_ids": attempted_ids,
+                    "error_types": error_types,
+                    "request_id": request_id,
+                    "attempt_count": len(attempt_log),
+                },
+                meta={"source": "forwarder", "request_id": request_id},
+            )
+        else:
+            self._emit(
+                EventType.ALL_KEYS_UNAVAILABLE,
+                {
+                    "attempted_account_ids": attempted_ids,
+                    "error_types": error_types,
+                    "request_id": request_id,
+                    "attempt_count": len(attempt_log),
+                },
+                meta={"source": "forwarder", "request_id": request_id},
+            )
+        self._emit_request(
+            request_id,
+            succeeded=False,
+            protocol=upstream_path,
+            stream=stream,
+            account_id=None,
+            status_code=503,
+            duration_ms=duration_ms,
+            attempt_log=attempt_log,
+            model=payload.get("model"),
+            error=(
+                {"type": last_error.kind.value, "message": last_error.detail}
+                if last_error
+                else {"type": "no_healthy", "message": "no healthy account available"}
+            ),
+        )
         return await self._server_error_response(last_error, stream)
 
     async def list_models(self) -> dict[str, Any]:
@@ -118,7 +254,11 @@ class Forwarder:
     async def _forward_once(
         self, request: Request, account: Account, payload: dict[str, Any], stream: bool,
         upstream_path: str = "/responses",
-    ) -> Response:
+    ) -> tuple[Response, tuple[int, int]]:
+        """单账号转发；成功返回 (response, (prompt_tokens, completion_tokens))。
+
+        流式场景 token 无法精确统计，返回 (0, 0)（PRD-C2 §3 边界）。
+        """
         client = self._client or httpx.AsyncClient(timeout=self._timeout)
         url = f"{self._base_url(account)}{upstream_path}"
         headers = {
@@ -169,6 +309,7 @@ class Forwarder:
                     status_code=status,
                     media_type=upstream.headers.get("content-type", "application/json"),
                 )
+                tokens = (prompt_tokens, completion_tokens)
             else:
                 # 流式：计入请求量（token 无法精确，见 PRD-C2 §3 边界）
                 if self._usage is not None:
@@ -183,8 +324,9 @@ class Forwarder:
                         "X-Accel-Buffering": "no",
                     },
                 )
+                tokens = (0, 0)
             response.headers["X-Pool-Account"] = account.id
-            return response
+            return response, tokens
         except UpstreamError:
             raise
         except httpx.HTTPError as exc:
@@ -200,6 +342,49 @@ class Forwarder:
 
     def _healthy_count(self) -> int:
         return sum(1 for a in self._pool.get_all() if a.enabled and a.status.value == "healthy")
+
+    def _emit(self, type_: str, data: dict, meta: dict | None = None) -> None:
+        """向统一事件流发射事件（C4；记录器缺失/失败一律降级）。"""
+        if self._event_recorder is None:
+            return
+        try:
+            self._event_recorder.record(type_, data, meta)
+        except Exception:  # noqa: BLE001 - 事件失败不影响转发
+            pass
+
+    def _emit_request(
+        self,
+        request_id: str,
+        succeeded: bool,
+        protocol: str,
+        stream: bool,
+        status_code: int,
+        duration_ms: int,
+        attempt_log: list[dict],
+        model: object | None = None,
+        account_id: str | None = None,
+        tokens: tuple[int, int] = (0, 0),
+        error: dict | None = None,
+    ) -> None:
+        """每次入站请求一条 request 事件（PRD-C4 §2.1）。"""
+        self._emit(
+            EventType.REQUEST,
+            {
+                "request_id": request_id,
+                "success": succeeded,
+                "protocol": protocol.lstrip("/"),
+                "model": model,
+                "stream": stream,
+                "status_code": status_code,
+                "duration_ms": duration_ms,
+                "account_id": account_id,
+                "attempt_count": len(attempt_log),
+                "attempts": attempt_log,
+                "token": {"prompt": tokens[0], "completion": tokens[1]},
+                "error": error,
+            },
+            meta={"source": "forwarder", "request_id": request_id, "route": protocol},
+        )
 
     async def _server_error_response(
         self, last_error: UpstreamError | None, stream: bool

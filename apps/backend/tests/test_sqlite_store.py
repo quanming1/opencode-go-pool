@@ -39,29 +39,30 @@ def test_empty_store_returns_empty(tmp_path):
     store.close()
 
 
-def test_write_event_and_history(tmp_path):
+def test_save_and_query_events(tmp_path):
+    """C4：save_event 落库后 query_events 可读（新在前）。"""
     db = tmp_path / "hist.db"
     store = AccountStore(str(db))
-    store.write_event("2026-08-19T00:00:00", "a1", "quota", "rate limit")
-    store.write_event("2026-08-19T00:00:01", "a1", "recover", "cooldown expired")
+    store.save_event("key_cooldown_started", "2026-08-19T00:00:00", '{"a":1}', '{"s":1}')
+    store.save_event("key_cooldown_completed", "2026-08-19T00:00:01", '{"a":2}', '{"s":1}')
 
-    hist = store.load_history()
-    # 新在前
-    assert hist[0]["kind"] == "recover"
-    assert hist[1]["kind"] == "quota"
-    assert hist[1]["account_id"] == "a1"
+    rows = store.query_events(limit=10)
+    assert [r["type"] for r in rows] == ["key_cooldown_completed", "key_cooldown_started"]
+    assert rows[0]["data"] == {"a": 2}
+    assert rows[1]["event_time"] == "2026-08-19T00:00:00"
     store.close()
 
 
-def test_history_trimmed_to_limit(tmp_path):
+def test_events_trimmed_to_limit(tmp_path):
+    """C4：events 裁剪到 event_limit。"""
     db = tmp_path / "trim.db"
-    store = AccountStore(str(db), history_limit=3)
+    store = AccountStore(str(db), event_limit=3)
     for i in range(5):
-        store.write_event(f"t{i}", "a1", "error", f"e{i}")
-    hist = store.load_history()
-    assert len(hist) == 3
-    assert hist[0]["reason"] == "e4"
-    assert hist[-1]["reason"] == "e2"
+        store.save_event("key_enabled", f"t{i}", f'{{"i":{i}}}', "{}")
+    rows = store.query_events(limit=10)
+    assert len(rows) == 3
+    assert rows[0]["data"] == {"i": 4}
+    assert rows[-1]["data"] == {"i": 2}
     store.close()
 
 

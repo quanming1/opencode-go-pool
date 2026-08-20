@@ -48,16 +48,15 @@ export interface StatsResponse {
   buckets: UsageBucket[];
 }
 
-export interface SwitchEvent {
-  ts: string;
-  account_id: string;
-  kind: string;
-  reason: string | null;
-  kind_label: string;
+export interface EventItem {
+  type: string;
+  data: Record<string, unknown>;
+  meta: Record<string, unknown>;
+  time: string;
 }
 
-export interface SwitchHistoryResponse {
-  events: SwitchEvent[];
+export interface EventsResponse {
+  events: EventItem[];
 }
 
 export interface GatewayKey {
