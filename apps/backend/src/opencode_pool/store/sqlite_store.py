@@ -10,7 +10,9 @@
 
 import json
 import logging
+import math
 import sqlite3
+from collections import Counter
 from pathlib import Path
 
 from opencode_pool.accounts.models import Account
@@ -355,10 +357,13 @@ class AccountStore:
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "error_count": 0,
+                "success_count": 0,
+                "success_rate": 1.0,
             },
             "per_account": [],
             "per_account_models": [],
             "buckets": [],
+            "error_types": [],
         }
         if not self._available or self._conn is None:
             return empty
@@ -368,7 +373,8 @@ class AccountStore:
             rows = self._conn.execute(
                 "SELECT strftime('%Y-%m-%dT%H:00:00', ts, ?) AS bucket, "
                 "SUM(request_count), SUM(prompt_tokens), SUM(completion_tokens), "
-                "SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END) "
+                "SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN kind='success' THEN request_count ELSE 0 END) "
                 "FROM usage_events "
                 "WHERE ts >= strftime('%Y-%m-%dT%H:%M:%S','now', ?) "
                 "GROUP BY bucket ORDER BY bucket",
@@ -381,24 +387,37 @@ class AccountStore:
                     "prompt_tokens": int(r[2] or 0),
                     "completion_tokens": int(r[3] or 0),
                     "error_count": int(r[4] or 0),
+                    "success_count": int(r[5] or 0),
                 }
                 for r in rows
             ]
             # 汇总
             total = self._conn.execute(
                 "SELECT SUM(request_count), SUM(prompt_tokens), SUM(completion_tokens), "
-                "SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END) FROM usage_events"
+                "SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN kind='success' THEN request_count ELSE 0 END) "
+                "FROM usage_events"
             ).fetchone()
+            success_count = int(total[4] or 0)
+            error_count = int(total[3] or 0)
             totals = {
                 "request_count": int(total[0] or 0),
                 "prompt_tokens": int(total[1] or 0),
                 "completion_tokens": int(total[2] or 0),
-                "error_count": int(total[3] or 0),
+                "error_count": error_count,
+                "success_count": success_count,
+                # 上游尝试级成功率（成功响应 / 成功+失败的尝试数；分母为 0 视为 1）
+                "success_rate": (
+                    round(success_count / (success_count + error_count), 4)
+                    if (success_count + error_count) > 0
+                    else 1.0
+                ),
             }
             # 按账号
             per = self._conn.execute(
                 "SELECT account_id, SUM(request_count), SUM(prompt_tokens), "
-                "SUM(completion_tokens), SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END) "
+                "SUM(completion_tokens), SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN kind='success' THEN request_count ELSE 0 END) "
                 "FROM usage_events GROUP BY account_id ORDER BY SUM(request_count) DESC"
             ).fetchall()
             per_account = [
@@ -408,13 +427,15 @@ class AccountStore:
                     "prompt_tokens": int(r[2] or 0),
                     "completion_tokens": int(r[3] or 0),
                     "error_count": int(r[4] or 0),
+                    "success_count": int(r[5] or 0),
                 }
                 for r in per
             ]
             # D1：按账号 × 模型聚合（某 Key 收到多少次请求、分别是什么模型）
             by_model = self._conn.execute(
                 "SELECT account_id, model, SUM(request_count), SUM(prompt_tokens), "
-                "SUM(completion_tokens), SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END) "
+                "SUM(completion_tokens), SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN kind='success' THEN request_count ELSE 0 END) "
                 "FROM usage_events GROUP BY account_id, model "
                 "ORDER BY SUM(request_count) DESC, account_id"
             ).fetchall()
@@ -426,19 +447,95 @@ class AccountStore:
                     "prompt_tokens": int(r[3] or 0),
                     "completion_tokens": int(r[4] or 0),
                     "error_count": int(r[5] or 0),
+                    "success_count": int(r[6] or 0),
                 }
                 for r in by_model
             ]
+            # E4：错误类型分布（kind='error' 按 error_type 分组）
+            err_rows = self._conn.execute(
+                "SELECT error_type, COUNT(*) FROM usage_events "
+                "WHERE kind='error' AND error_type IS NOT NULL "
+                "GROUP BY error_type ORDER BY COUNT(*) DESC"
+            ).fetchall()
+            error_types = [{"type": r[0], "count": int(r[1] or 0)} for r in err_rows]
             return {
                 "hours": hours,
                 "totals": totals,
                 "per_account": per_account,
                 "per_account_models": per_account_models,
                 "buckets": buckets,
+                "error_types": error_types,
             }
         except sqlite3.Error as exc:
             logger.warning("[store] 聚合用量失败: %s", exc)
             return empty
+
+    # ---- E4：事件派生聚合（图表补充维度）----
+
+    def events_summary(self, limit: int = 500) -> dict:
+        """基于最近 N 条统一事件聚合图表补充维度：request 耗时/协议分布 + 状态类事件计数。
+
+        口径（PRD-E4 §2.2）：events 为环形缓冲（默认保留 5000 条），本方法只覆盖
+        最近 `limit` 条，`duration_ms`/`protocol` 反映"近期"请求特征；空库/异常降级为
+        默认结构（不抛）。p95 需至少 2 个样本，否则为 None。
+        """
+        default = {
+            "window": limit,
+            "duration_ms": {"avg": None, "p95": None, "max": None},
+            "protocol": [],
+            "event_counts": {
+                "key_switch": 0,
+                "key_cooldown_started": 0,
+                "key_disabled": 0,
+                "all_keys_unavailable": 0,
+                "all_keys_invalid": 0,
+            },
+        }
+        if not self._available or self._conn is None:
+            return default
+        try:
+            rows = self._conn.execute(
+                "SELECT type, data_json FROM events ORDER BY id DESC LIMIT ?",
+                (max(1, min(int(limit), self._event_limit)),),
+            ).fetchall()
+        except sqlite3.Error as exc:
+            logger.warning("[store] 读 events 汇总失败: %s", exc)
+            return default
+        durations: list[int] = []
+        protocol_counter: Counter[str] = Counter()
+        event_counts: Counter[str] = Counter()
+        for type_, data_json in rows:
+            if type_ == "request":
+                try:
+                    data = json.loads(data_json) if data_json else {}
+                except json.JSONDecodeError:
+                    continue
+                prot = data.get("protocol")
+                if prot:
+                    protocol_counter[str(prot)] += 1
+                dur = data.get("duration_ms")
+                if isinstance(dur, (int, float)) and dur >= 0:
+                    durations.append(int(dur))
+                continue
+            if type_ in default["event_counts"]:
+                event_counts[type_] += 1
+        duration_stats: dict[str, int | None] = {"avg": None, "p95": None, "max": None}
+        if durations:
+            duration_stats["avg"] = int(sum(durations) / len(durations))
+            duration_stats["max"] = max(durations)
+            if len(durations) >= 2:
+                ordered = sorted(durations)
+                idx = min(len(ordered) - 1, int(math.ceil(len(ordered) * 0.95)) - 1)
+                duration_stats["p95"] = ordered[idx]
+        return {
+            "window": limit,
+            "duration_ms": duration_stats,
+            "protocol": [
+                {"name": name, "count": cnt}
+                for name, cnt in protocol_counter.most_common()
+            ],
+            "event_counts": {key: int(event_counts[key]) for key in default["event_counts"]},
+        }
 
     # ---- C3：网关 key 管理 ----
 

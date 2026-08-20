@@ -4,16 +4,19 @@ import { AccountCard } from "../dashboard/AccountCard";
 import { UsageCharts } from "../charts/UsageCharts";
 import { ModelUsageChart } from "../charts/ModelUsageChart";
 import { AccountLoadChart } from "../charts/AccountLoadChart";
+import { ProtocolChart } from "../charts/ProtocolChart";
+import { ErrorTypeChart } from "../charts/ErrorTypeChart";
 import { EventTimeline } from "../charts/EventTimeline";
 import { AccountControls } from "./AccountControls";
 import { LogsOverviewCard } from "./LogsOverviewCard";
+import { StatsSummaryCard } from "./StatsSummaryCard";
 import { useI18n } from "../../i18n";
 import { useCallback } from "react";
 
 /**
- * Tab1：用量信息（C3 FR8；C5 额度；D1 日志升级；E2 i18n）。
+ * Tab1：用量信息（C3 FR8；C5 额度；D1 日志升级；E2 i18n；E4 运行汇总 + 协议/错误类型图）。
  * 汇总卡（含额度总览）+ 运行概览（活跃 Key/速率/剩余时长）+ 账号卡（额度区块 + 控制按钮）
- * + 用量趋势图 + 模型分布/账号负载图 + 统一事件时间线（分页）。
+ * + 运行汇总 + 用量趋势图 + 模型分布/账号负载/协议分布/错误类型图 + 统一事件时间线（分页）。
  */
 export function UsagePanel() {
   const { t } = useI18n();
@@ -93,6 +96,15 @@ export function UsagePanel() {
       </section>
 
       <section className="card">
+        <h2 className="card-title">{t("stats.title")}</h2>
+        {stats ? (
+          <StatsSummaryCard stats={stats} />
+        ) : (
+          <p className="dashboard-empty">{t("common.loading")}</p>
+        )}
+      </section>
+
+      <section className="card">
         <h2 className="card-title">{t("chart.title.usage")}</h2>
         {stats && stats.buckets.length > 0 ? (
           <UsageCharts stats={stats} />
@@ -116,6 +128,24 @@ export function UsagePanel() {
           <AccountLoadChart stats={stats} />
         ) : (
           <p className="dashboard-empty">{t("chart.empty.accounts")}</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h2 className="card-title">{t("chart.title.protocol")}</h2>
+        {stats && stats.summary && stats.summary.protocol.length > 0 ? (
+          <ProtocolChart stats={stats} />
+        ) : (
+          <p className="dashboard-empty">{t("chart.empty.protocol")}</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h2 className="card-title">{t("chart.title.errorTypes")}</h2>
+        {stats && stats.error_types && stats.error_types.length > 0 ? (
+          <ErrorTypeChart stats={stats} />
+        ) : (
+          <p className="dashboard-empty">{t("chart.empty.errorTypes")}</p>
         )}
       </section>
 
