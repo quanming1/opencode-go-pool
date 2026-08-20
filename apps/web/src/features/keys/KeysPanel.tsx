@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CreatedGatewayKey, GatewayKey } from "../../types/pool";
-import { createGatewayKey, fetchGatewayKeys, revokeGatewayKey } from "../../services/api";
+import { createGatewayKey, fetchGatewayKeys, rememberAdminKey, revokeGatewayKey } from "../../services/api";
 
 /**
  * Tab2：API Key 管理（C3 FR9）。
@@ -16,12 +16,22 @@ export function KeysPanel() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmRevoke, setConfirmRevoke] = useState<number | null>(null);
+  // 解锁态：管理请求 401（本浏览器无有效管理凭证）时显示输入框
+  const [locked, setLocked] = useState(false);
+  const [unlockInput, setUnlockInput] = useState("");
 
   const reload = useCallback(async () => {
     try {
       setKeys(await fetchGatewayKeys());
+      setLocked(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      // 401 = 本浏览器没有有效管理凭证（换浏览器/清缓存后的解锁场景）
+      if (/401/.test(msg)) {
+        setLocked(true);
+      } else {
+        setError(msg);
+      }
     }
   }, []);
 
@@ -42,10 +52,23 @@ export function KeysPanel() {
       setLabel("");
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/401/.test(msg)) {
+        setLocked(true);
+      } else {
+        setError(msg);
+      }
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleUnlock() {
+    const key = unlockInput.trim();
+    if (!key) return;
+    rememberAdminKey(key);
+    setUnlockInput("");
+    await reload();
   }
 
   async function handleRevoke(id: number) {
@@ -74,6 +97,28 @@ export function KeysPanel() {
 
   return (
     <div className="keys-panel" data-testid="keys-panel">
+      {locked && (
+        <section className="card key-unlock" data-testid="key-unlock">
+          <h2 className="card-title">需要管理密钥</h2>
+          <p className="dashboard-empty">
+            本浏览器尚未保存有效的管理密钥（鉴权已启用）。粘贴任一有效网关 key 或 master key 解锁：
+          </p>
+          <div className="keys-create">
+            <input
+              type="text"
+              className="keys-input"
+              placeholder="gk-... 或 master key"
+              value={unlockInput}
+              onChange={(e) => setUnlockInput(e.target.value)}
+              data-testid="unlock-input"
+            />
+            <button type="button" className="btn btn-primary" onClick={handleUnlock} data-testid="unlock-btn">
+              解锁
+            </button>
+          </div>
+        </section>
+      )}
+
       <section className="card">
         <h2 className="card-title">生成新 Key</h2>
         <div className="keys-create">

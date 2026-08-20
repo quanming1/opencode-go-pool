@@ -55,13 +55,13 @@ body {
   font-size: 12px;
 }
 
-/* 主区 */
+/* 主区（C3 分栏后由 .page-body flex 布局接管，占满剩余宽度；
+   内容区内部用 .account-list 网格自适应，不再全局限宽） */
 .page-main {
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 960px;
 }
 
 /* 直角细边卡片（无阴影） */
