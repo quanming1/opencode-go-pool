@@ -129,9 +129,10 @@ stages:
     steps:
       - id: G1
         title: CI 与完整测试
-        status: in_progress
+        status: done
+        date: 2026-08-20
         prd: docs/prd/PRD-G1-ci.md
-        prd_status: approved
+        prd_status: 已验收
         modules:
           - .github/workflows/ci.yml
         acceptance: CI 绿（backend pytest/ruff + web eslint/vitest/build）
