@@ -86,12 +86,16 @@
   font-size: 12px;
 }
 
-/* keys 面板 */
+/* keys 面板（占满内容区宽度） */
 .keys-panel {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 860px;
+}
+
+/* 解锁区块（401 自锁恢复入口） */
+.key-unlock {
+  border-color: var(--color-warn);
 }
 
 .keys-create {

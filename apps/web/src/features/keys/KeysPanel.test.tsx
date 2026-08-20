@@ -7,6 +7,9 @@ vi.mock("../../services/api", () => ({
   fetchGatewayKeys: vi.fn(),
   createGatewayKey: vi.fn(),
   revokeGatewayKey: vi.fn(),
+  rememberAdminKey: vi.fn((key: string) => {
+    localStorage.setItem("ocp.gateway.admin.key", key);
+  }),
 }));
 
 const mFetch = vi.mocked(fetchGatewayKeys);
@@ -75,5 +78,24 @@ describe("KeysPanel", () => {
     mRevoke.mockResolvedValue({ ok: true });
     fireEvent.click(screen.getByText("确认"));
     await waitFor(() => expect(mRevoke).toHaveBeenCalledWith(1));
+  });
+
+  it("401 时显示解锁入口，输入有效 key 后恢复", async () => {
+    localStorage.removeItem("ocp.gateway.admin.key");
+    mFetch.mockRejectedValueOnce(new Error("请求失败: 401"));
+    mFetch.mockResolvedValueOnce([
+      { id: 1, label: "ftre", created_at: "2026-08-20T10:00:00", revoked_at: null },
+    ]);
+
+    render(<KeysPanel />);
+    await waitFor(() => expect(screen.getByTestId("key-unlock")).toBeDefined());
+
+    fireEvent.change(screen.getByTestId("unlock-input"), {
+      target: { value: "gk-saved-key" },
+    });
+    fireEvent.click(screen.getByTestId("unlock-btn"));
+    await waitFor(() => expect(screen.getByText("ftre")).toBeDefined());
+    expect(localStorage.getItem("ocp.gateway.admin.key")).toBe("gk-saved-key");
+    expect(screen.queryByTestId("key-unlock")).toBeNull();
   });
 });

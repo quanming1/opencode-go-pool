@@ -30,8 +30,7 @@ export function UsageCharts({ stats }: { stats: StatsResponse }) {
     const el = ref.current;
     if (!el) return;
     const chart = echarts.init(el);
-    chart.setOption({
-      tooltip: { trigger: "axis" },
+    chart.setOption({      tooltip: { trigger: "axis" },
       // 图例显式置顶，避免与 X 轴标签重叠（截图反馈的布局 bug）
       legend: { data: ["请求量", "Token"], top: 8 },
       grid: { left: 56, right: 56, top: 56, bottom: 32 },
@@ -62,7 +61,13 @@ export function UsageCharts({ stats }: { stats: StatsResponse }) {
         },
       ],
     });
-    return () => chart.dispose();
+    // 容器宽度随窗口/分栏变化时重绘（宽屏下 chart-box 会变宽）
+    const onResize = () => chart.resize();
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      chart.dispose();
+    };
   }, [stats]);
 
   return <div ref={ref} className="chart-box" data-testid="usage-chart" />;
