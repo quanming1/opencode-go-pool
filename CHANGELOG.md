@@ -16,3 +16,4 @@
 - C1 前端账号状态大盘：账号卡片 + 状态徽章（健康/冷却/禁用）+ 统计摘要 + 10s 轮询；白色简洁风；删除 demo 占位（vitest 10 passed）
 - C2 用量与轮换：后端 /api/stats（按小时桶/账号聚合）+ /api/switch-history（Thread 中文映射）+ 前端 ECharts 用量趋势图与轮换时间线（pytest 70 + vitest 13 passed）
 - G1 CI：GitHub Actions workflow（backend pytest/ruff + web eslint/vitest/build），push/PR 自动校验
+- G2 文档：根 README（架构/快速开始/API 汇总/配置表）+ 后端/前端 README + docs/usage.md 操作手册与 FAQ
