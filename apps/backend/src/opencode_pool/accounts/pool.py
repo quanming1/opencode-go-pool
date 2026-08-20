@@ -40,6 +40,7 @@ class AccountPool:
         max_consecutive_failures: int = DEFAULT_MAX_CONSECUTIVE_FAILURES,
         history_limit: int = DEFAULT_HISTORY_LIMIT,
         now: Callable[[], datetime] = datetime.now,
+        store: object | None = None,
     ) -> None:
         self._accounts: dict[str, Account] = {a.id: a for a in (accounts or [])}
         self._cooldown_seconds = cooldown_seconds
@@ -47,6 +48,8 @@ class AccountPool:
         self._history: deque[dict] = deque(maxlen=history_limit)
         self._now = now
         self._lock = threading.Lock()
+        # B4：可选持久化存储（AccountStore 或兼容接口）；None = 纯内存
+        self._store = store
 
     # ---- 查询 ----
 
@@ -118,6 +121,7 @@ class AccountPool:
                 a.enabled = False  # 禁用态不再参与 pick
                 a.last_error = f"auto-disabled: consecutive failures ({a.consecutive_failures})"
                 self._record_event(account_id, "auto_disable", a.last_error)
+                self._persist(a)
                 logger.error(
                     "[accounts] %s 连续失败 %d 次（阈值 %d），自动禁用",
                     account_id,
@@ -127,6 +131,7 @@ class AccountPool:
                 return True
 
             self._record_event(account_id, kind, reason)
+            self._persist(a)
             logger.warning(
                 "[accounts] %s 进入冷却（TTL=%ss），kind=%s 原因: %s",
                 account_id,
@@ -148,6 +153,7 @@ class AccountPool:
             a.error_count = 0
             a.consecutive_failures = 0
             self._record_event(account_id, "clear", "manual clear")
+            self._persist(a)
             logger.info("[accounts] %s 清除状态 -> healthy", account_id)
             return True
 
@@ -155,8 +161,9 @@ class AccountPool:
         """成功使用：重置连续失败计数（累计 error_count 保留）。"""
         with self._lock:
             a = self._accounts.get(account_id)
-            if a is not None:
+            if a is not None and a.consecutive_failures != 0:
                 a.consecutive_failures = 0
+                self._persist(a)
 
     def disable(self, account_id: str, reason: str) -> bool:
         """手动禁用（disabled 优先于其他状态）。"""
@@ -168,6 +175,7 @@ class AccountPool:
             a.status = AccountStatus.DISABLED
             a.last_error = reason
             self._record_event(account_id, "disable", reason)
+            self._persist(a)
             logger.warning("[accounts] %s 已禁用: %s", account_id, reason)
             return True
 
@@ -186,6 +194,7 @@ class AccountPool:
                 a.error_count = 0
                 a.consecutive_failures = 0
             self._record_event(account_id, "enable", "manual enable")
+            self._persist(a)
             logger.info("[accounts] %s 已启用", account_id)
             return True
 
@@ -208,6 +217,7 @@ class AccountPool:
                     a.error_count = 0
                     a.consecutive_failures = 0
                     self._record_event(a.id, "recover", "cooldown expired")
+                    self._persist(a)
                     recovered += 1
             if recovered:
                 logger.info("[accounts] 主动扫描恢复 %d 个账号", recovered)
@@ -237,9 +247,10 @@ class AccountPool:
                 a.error_count = 0
                 a.consecutive_failures = 0
                 self._record_event(a.id, "recover", "cooldown expired (lazy)")
+                self._persist(a)
 
     def _record_event(self, account_id: str, kind: str, reason: str) -> None:
-        """追加一条切换/状态事件到环形历史。"""
+        """追加一条切换/状态事件到环形历史，并持久化（B4 FR5）。"""
         self._history.append(
             {
                 "ts": self._now().isoformat(),
@@ -248,6 +259,70 @@ class AccountPool:
                 "reason": reason,
             }
         )
+        if self._store is not None:
+            try:
+                self._store.write_event(
+                    self._now().isoformat(), account_id, kind, reason
+                )
+            except Exception:  # noqa: BLE001 - 持久化失败不影响内存态
+                pass
+
+    # ---- B4：持久化 ----
+
+    def restore_from_store(self) -> int:
+        """从 store 恢复账号运行时状态，返回恢复条数。
+
+        覆盖配置默认的 healthy；cooldown 中但已到期的账号按当前时间转为 healthy。
+        """
+        if self._store is None:
+            return 0
+        states = self._store.load_accounts_state()
+        restored = 0
+        with self._lock:
+            for account_id, st in states.items():
+                a = self._accounts.get(account_id)
+                if a is None:
+                    continue
+                self._apply_restored_state(a, st)
+                restored += 1
+        return restored
+
+    def _apply_restored_state(self, a: Account, st: dict) -> None:
+        """把 store 读出的状态字段套到账号（含过期冷却懒恢复）。"""
+        status_str = st.get("status", AccountStatus.HEALTHY.value)
+        cooldown_until = st.get("cooldown_until")
+        a.enabled = bool(st.get("enabled", True))
+        a.error_count = int(st.get("error_count", 0) or 0)
+        a.consecutive_failures = int(st.get("consecutive_failures", 0) or 0)
+        a.last_error = st.get("last_error")
+        if cooldown_until:
+            try:
+                a.cooldown_until = datetime.fromisoformat(cooldown_until)
+            except ValueError:
+                a.cooldown_until = None
+        else:
+            a.cooldown_until = None
+
+        if status_str == AccountStatus.COOLDOWN.value:
+            if a.cooldown_until and self._now() >= a.cooldown_until:
+                a.status = AccountStatus.HEALTHY
+                a.cooldown_until = None
+                a.last_error = None
+            else:
+                a.status = AccountStatus.COOLDOWN
+        elif status_str == AccountStatus.DISABLED.value:
+            a.status = AccountStatus.DISABLED
+            a.enabled = False
+        else:
+            a.status = AccountStatus.HEALTHY
+
+    def _persist(self, a: Account) -> None:
+        """状态变更后写回 store（内部调用，均已在锁内）。"""
+        if self._store is not None:
+            try:
+                self._store.save_state(a)
+            except Exception:  # noqa: BLE001 - DB 降级不崩服务
+                pass
 
     # ---- 日志用脱敏 ----
 
