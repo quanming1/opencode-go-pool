@@ -164,7 +164,8 @@ export function KeysPanel() {
         {keys.length === 0 ? (
           <p className="dashboard-empty">暂无 key。生成后转发端点将启用 Bearer 鉴权。</p>
         ) : (
-          <table className="keys-table">
+          <div className="keys-table-wrap">
+            <table className="keys-table">
             <thead>
               <tr>
                 <th>标签</th>
@@ -204,6 +205,7 @@ export function KeysPanel() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 
