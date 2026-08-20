@@ -11,12 +11,14 @@ import {
   type ReactNode,
 } from "react";
 import { messages, type Locale, type MessageKey } from "./messages";
+import type { Theme } from "../theme/tokens";
 
 export type { Locale, MessageKey } from "./messages";
+// 主题域（类型/图表色板）收敛自 src/theme/tokens.ts，保持既有 import 兼容
+export { chartColors, type Theme } from "../theme/tokens";
 
 const LOCALE_KEY = "ocp.locale";
 const THEME_KEY = "ocp.theme";
-export type Theme = "light" | "dark";
 
 function safeGet(key: string): string | null {
   try {
@@ -135,20 +137,3 @@ export function useTheme(): {
   return ctx;
 }
 
-/** ECharts 系列色（随主题动态取 CSS 变量）。 */
-export function chartColors(theme: Theme): {
-  accent: string;
-  ok: string;
-  danger: string;
-  border: string;
-  label: string;
-} {
-  // 直接按主题映射（与 index.css 双主题变量保持一致）
-  return {
-    accent: theme === "dark" ? "#3b82f6" : "#2563eb",
-    ok: theme === "dark" ? "#22c55e" : "#16a34a",
-    danger: theme === "dark" ? "#ef4444" : "#dc2626",
-    border: theme === "dark" ? "#374151" : "#e5e7eb",
-    label: theme === "dark" ? "#9ca3af" : "#6b7280",
-  };
-}

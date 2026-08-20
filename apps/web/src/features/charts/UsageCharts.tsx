@@ -8,7 +8,8 @@ import {
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { StatsResponse } from "../../types/pool";
-import { chartColors, useI18n, useTheme } from "../../i18n";
+import { useI18n, useTheme } from "../../i18n";
+import { chartColors } from "../../theme/tokens";
 
 // 按需注册（A3 DemoChart 同模式）
 echarts.use([

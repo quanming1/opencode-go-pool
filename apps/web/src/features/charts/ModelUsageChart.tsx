@@ -4,7 +4,8 @@ import { BarChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { StatsResponse } from "../../types/pool";
-import { chartColors, useI18n, useTheme } from "../../i18n";
+import { useI18n, useTheme } from "../../i18n";
+import { chartColors } from "../../theme/tokens";
 
 echarts.use([
   BarChart,
