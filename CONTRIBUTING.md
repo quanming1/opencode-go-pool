@@ -8,7 +8,7 @@ Thanks for your interest in OpenCode Go Pool. This project follows the **Rondo m
 2. **PRD first** — before coding a stage, create/update its PRD in `docs/prd/` (copy from the template) and reach `approved`.
 3. **Branch per task** — `develop` only accepts Pull Requests; create a branch named `feature/<stage>-<name>` (or `fix/<stage>-<name>`, `docs/...`, `todos`, `prd`, `chore/...`).
 4. **Conventional commits** — `<type>(<scope>): <subject>` with a *Chinese* subject, English type/scope. `feat`/`fix`/`prd`/`todos` scopes must be a real stage id from `docs/TODO.yaml` (enforced by githooks).
-5. **Open a PR** to `develop`, wait for CI (backend `pytest` + `ruff`, web `eslint` + `vitest` + `build`), get a review, then merge.
+5. **Open a PR** to `develop`, wait for CI (backend `pytest` + `ruff` + build the wheel, web `eslint` + `vitest` + `build`, then a `pack` job assembles & verifies the release package), get a review, then merge.
 6. **No local merges into `develop`** — `develop` and `main` only receive PRs. Never push to `main` directly.
 
 ## Local checks before opening a PR
@@ -19,6 +19,11 @@ cd apps/backend && .venv\Scripts\python -m pytest && .venv\Scripts\python -m ruf
 
 # frontend
 cd apps/web && pnpm lint && pnpm test --run && pnpm build
+
+# release package (optional local check; CI runs the same logic as the pack job)
+cd apps/backend && python -m build --wheel --outdir dist                 # produces apps/backend/dist/*.whl
+cd ../.. && python scripts/package_release.py --out release --root . \
+  --backend-dist apps/backend/dist --web-dist apps/web/dist --smoke-install
 ```
 
 ## Testing

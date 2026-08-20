@@ -8,7 +8,7 @@
 |---|---|
 | 阶段 | G3 |
 | 名称 | CICD 自动打包验证 |
-| 状态 | approved |
+| 状态 | 开发中 |
 | 创建日期 | 2026-08-20 |
 | 定稿日期 | 2026-08-20 |
 | 关联文档 | docs/TODO.yaml 阶段 G3；.github/workflows/ci.yml；scripts/package_release.py |
@@ -166,3 +166,4 @@ python -c "import opencode_pool; from opencode_pool.app import create_app; ...�
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-20 | 初始定稿 | — |
+| 2026-08-20 | 实现完成：ci.yml 扩展为 backend/web/pack 三 job（wheel/dist artifact + 组装校验 + tag 自动 Release）；新增 scripts/package_release.py（纯标准库）；pyproject dev 加 build 依赖；README/README.zh-CN/CONTRIBUTING 同步 | 阶段 G3 开发 |
