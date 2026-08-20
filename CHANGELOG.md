@@ -45,6 +45,7 @@
 
 ### Added
 
+- G3 CICD 自动打包验证：ci.yml 扩展为 backend/web/pack 三 job 依赖链——backend 构建 wheel、web 构建 dist 并上传 artifact；pack job 用新增 `scripts/package_release.py`（纯标准库，本地可跑）把后端 wheel + 前端 dist + start.py/文档/示例配置组装成 `opencode-go-pool-<version>.zip`，并做真实校验（全新临时 venv 安装 wheel + import 版本断言、dist/index.html 引用的 /assets 资源全在包内、根文件清单断言）；产物上传 artifact `release-package`，推 `v*` tag 自动挂到对应 GitHub Release。pyproject dev 依赖补 build 包；README/README.zh-CN/CONTRIBUTING 同步（PR #82 合并，CI 三 job 全绿）
 - E2 中英文切换 + 主题切换：自研轻量 i18n（zh/en 字典 + I18nProvider/useI18n，localStorage 持久化，未新增依赖）；CSS 变量双主题（:root 浅色 + `html[data-theme="dark"]` 深色，全站含 ECharts 动态取色）；header 语言/主题切换控件；13 个组件文案全部 t() 化、字典 key 一致性单测（vitest 34→38、eslint 0、build 通过；playwright 实测切 EN/Dark 即时生效且刷新持久化、无首帧闪烁）
 - E1 响应式开发：建立 1024/768/576 断点体系（收敛旧 900/720）；窄屏（≤576）侧栏折叠为顶部 tab、内容区占满全宽；账号卡/概览/额度均值网格列改 `minmax(0,1fr)` 防内容撑破；keys 表格窄屏容器横滚；事件时间线小屏可换行；账号卡头部文本省略保护。playwright 实测 360/480/768/1024/1440 五视口无横向溢出（vitest 34 + eslint 0 + build 通过）
 
