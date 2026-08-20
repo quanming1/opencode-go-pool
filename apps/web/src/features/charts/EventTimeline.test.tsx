@@ -95,6 +95,30 @@ describe("EventTimeline", () => {
     );
     expect(screen.getByText("请求")).toBeDefined();
   });
+
+  it("字段详情：meta 与 data 同名字段（request_id）只渲染一次", async () => {
+    // request 事件 data 与 meta 都含 request_id（真实转发即如此）
+    mFetchEventsPage.mockResolvedValue(
+      pageBody(
+        [
+          {
+            type: "request",
+            data: { success: true, request_id: "r1", account_id: "a1" },
+            meta: { source: "forwarder", request_id: "r1" },
+            time: "2026-08-20T09:00:00+00:00",
+          },
+        ],
+        0,
+        false,
+      ),
+    );
+    render(<EventTimeline />);
+    await waitFor(() => screen.getByText("请求"));
+    fireEvent.click(screen.getByText("字段详情"));
+    // request_id 行只出现一次（React key 不冲突）
+    const fields = screen.getAllByText("request_id");
+    expect(fields).toHaveLength(1);
+  });
 });
 
 describe("buildSummary", () => {

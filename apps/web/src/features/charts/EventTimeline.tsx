@@ -14,18 +14,19 @@ function formatTs(ts: string): string {
 const PAGE_SIZE = 20;
 const AUTO_REFRESH_MS = 10_000;
 
-/** 把事件 data/meta 的字段展开成可读行（D1 FR6 丰富字段）。 */
+/** 把事件 data/meta 的字段展开成可读行（D1 FR6 丰富字段）。
+
+ * meta 与 data 可能同名字段（如 request_id）——同名只保留一处，避免 React key 冲突。
+ */
 function detailRows(event: EventItem): Array<[string, string]> {
   const rows: Array<[string, string]> = [];
+  const seen = new Set<string>();
   const data = event.data ?? {};
   const meta = event.meta ?? {};
   const push = (k: string, v: unknown): void => {
-    if (v === undefined || v === null) return;
-    if (typeof v === "object") {
-      rows.push([k, JSON.stringify(v)]);
-    } else {
-      rows.push([k, String(v)]);
-    }
+    if (v === undefined || v === null || seen.has(k)) return;
+    seen.add(k);
+    rows.push([k, typeof v === "object" ? JSON.stringify(v) : String(v)]);
   };
   push("request_id", meta.request_id);
   push("source", meta.source);
