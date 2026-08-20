@@ -178,8 +178,13 @@ class AccountStore:
         except sqlite3.Error as exc:
             logger.warning("[store] 写统一事件失败: %s", exc)
 
-    def query_events(self, limit: int = 100, types: list[str] | None = None) -> list[dict]:
-        """统一事件（新→旧），支持 type 白名单筛选与条数限制。
+    def query_events(
+        self,
+        limit: int = 100,
+        types: list[str] | None = None,
+        offset: int = 0,
+    ) -> list[dict]:
+        """统一事件（新→旧），支持 type 白名单筛选、条数限制与翻页偏移。
 
         单条 data/meta JSON 损坏 → 跳过该条，不影响其余。
         """
@@ -187,13 +192,16 @@ class AccountStore:
             return []
         try:
             sql = "SELECT type, event_time, data_json, meta_json FROM events"
+            where = ""
             params: list = []
             if types:
                 placeholders = ",".join("?" * len(types))
-                sql += f" WHERE type IN ({placeholders})"
+                where = f" WHERE type IN ({placeholders})"
                 params.extend(types)
-            sql += " ORDER BY id DESC LIMIT ?"
+            sql += where
+            sql += " ORDER BY id DESC LIMIT ? OFFSET ?"
             params.append(max(1, min(int(limit), self._event_limit)))
+            params.append(max(0, int(offset)))
             rows = self._conn.execute(sql, params).fetchall()
         except sqlite3.Error as exc:
             logger.warning("[store] 读统一事件失败: %s", exc)
@@ -212,6 +220,60 @@ class AccountStore:
             except json.JSONDecodeError:
                 continue  # 单条坏数据降级跳过
         return out
+
+    def count_events(self, types: list[str] | None = None) -> int:
+        """统一事件总数（支持 type 白名单），用于分页 has_more 判断。"""
+        if not self._available or self._conn is None:
+            return 0
+        try:
+            sql = "SELECT COUNT(*) FROM events"
+            params: list = []
+            if types:
+                placeholders = ",".join("?" * len(types))
+                sql += f" WHERE type IN ({placeholders})"
+                params.extend(types)
+            row = self._conn.execute(sql, params).fetchone()
+            return int(row[0] or 0) if row else 0
+        except sqlite3.Error as exc:
+            logger.warning("[store] 统计事件数失败: %s", exc)
+            return 0
+
+    def recent_usage_rate(self, minutes: int = 60) -> dict:
+        """最近 N 分钟请求与 token 速率（字符串时间窗口，与 aggregate_usage 同口径）。
+
+        供 D1 活跃 Key/剩余时长推测使用：统计全部入站请求（kind 含 success/error），
+        因为请求无论成败都会消耗滚动窗口额度。
+        """
+        empty = {
+            "minutes": minutes,
+            "requests": 0,
+            "requests_per_minute": 0.0,
+            "tokens": 0,
+            "tokens_per_hour": 0,
+        }
+        if not self._available or self._conn is None:
+            return empty
+        try:
+            offset_sql = f"-{max(1, int(minutes))} minutes"
+            row = self._conn.execute(
+                "SELECT COUNT(*), COALESCE(SUM(prompt_tokens), 0), "
+                "COALESCE(SUM(completion_tokens), 0) FROM usage_events "
+                "WHERE ts >= strftime('%Y-%m-%dT%H:%M:%S','now', ?)",
+                (offset_sql,),
+            ).fetchone()
+            requests = int(row[0] or 0) if row else 0
+            tokens = int((row[1] or 0) + (row[2] or 0)) if row else 0
+            return {
+                "minutes": minutes,
+                "requests": requests,
+                "requests_per_minute": round(requests / minutes, 2),
+                "tokens": tokens,
+                "tokens_per_hour": round(tokens / (minutes / 60)),
+            }
+        except sqlite3.Error as exc:
+            logger.warning("[store] 统计请求速率失败: %s", exc)
+            return empty
+
 
     def migrate_switch_history(self) -> int:
         """把旧 switch_history 表逐行迁移为统一事件后 DROP（幂等，C4）。
@@ -295,6 +357,7 @@ class AccountStore:
                 "error_count": 0,
             },
             "per_account": [],
+            "per_account_models": [],
             "buckets": [],
         }
         if not self._available or self._conn is None:
@@ -348,10 +411,29 @@ class AccountStore:
                 }
                 for r in per
             ]
+            # D1：按账号 × 模型聚合（某 Key 收到多少次请求、分别是什么模型）
+            by_model = self._conn.execute(
+                "SELECT account_id, model, SUM(request_count), SUM(prompt_tokens), "
+                "SUM(completion_tokens), SUM(CASE WHEN kind='error' THEN 1 ELSE 0 END) "
+                "FROM usage_events GROUP BY account_id, model "
+                "ORDER BY SUM(request_count) DESC, account_id"
+            ).fetchall()
+            per_account_models = [
+                {
+                    "account_id": r[0],
+                    "model": r[1],
+                    "request_count": int(r[2] or 0),
+                    "prompt_tokens": int(r[3] or 0),
+                    "completion_tokens": int(r[4] or 0),
+                    "error_count": int(r[5] or 0),
+                }
+                for r in by_model
+            ]
             return {
                 "hours": hours,
                 "totals": totals,
                 "per_account": per_account,
+                "per_account_models": per_account_models,
                 "buckets": buckets,
             }
         except sqlite3.Error as exc:

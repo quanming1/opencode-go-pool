@@ -166,3 +166,4 @@
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-20 | 初始定稿 | 用户发起日志系统升级功能（模型/token 双协议/按 Key 模型统计/剩余推测/活跃 Key/前端分页+图表），覆盖 TODO D1 立项范围 |
+| 2026-08-20 | 后端实现完成：新增 `/api/logs/overview`、`/api/stats` 扩展 `per_account_models`、`/api/events` 支持 `offset` 分页；双协议 token 提取补显式测试；store 新增 `recent_usage_rate` | D1 后端开发收口，行为变更留痕（测试 135 passed + 独立端口端到端实测通过） |
