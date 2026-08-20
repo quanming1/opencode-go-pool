@@ -62,6 +62,7 @@ describe("chartColors 派生色板", () => {
     expect(c).toEqual({
       accent: lightTokens.accent,
       ok: lightTokens.ok,
+      warn: lightTokens.warn,
       danger: lightTokens.danger,
       border: lightTokens.border,
       label: lightTokens["text-secondary"],
@@ -73,6 +74,7 @@ describe("chartColors 派生色板", () => {
     expect(c).toEqual({
       accent: darkTokens.accent,
       ok: darkTokens.ok,
+      warn: darkTokens.warn,
       danger: darkTokens.danger,
       border: darkTokens.border,
       label: darkTokens["text-secondary"],
