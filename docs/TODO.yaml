@@ -113,10 +113,15 @@ stages:
         acceptance: 全部通过——vitest 10 passed、lint/build 干净、UI 目检（直角/无阴影/白底/徽章色）
       - id: C2
         title: 用量与轮换趋势图（ECharts）
-        status: todo
+        status: in_progress
+        prd: docs/prd/PRD-C2-usage-charts.md
+        prd_status: approved
         modules:
+          - apps/backend/src/opencode_pool/usage/
+          - apps/backend/src/opencode_pool/api/usage.py
           - apps/web/src/features/charts/
-        acceptance: 请求量/Token 用量趋势 + 轮换事件时间线
+          - apps/web/src/services/api.ts
+        acceptance: 用量统计/切换历史 API + 请求量/token 趋势图 + 轮换时间线 + pytest/vitest/build
   # ---- G 收尾 ----
   - id: G
     name: 收尾
