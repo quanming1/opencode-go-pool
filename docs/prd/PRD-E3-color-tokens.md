@@ -8,7 +8,7 @@
 |---|---|
 | 阶段 | E3 |
 | 名称 | 主题切换 · 颜色 token 化 |
-| 状态 | approved |
+| 状态 | 开发中 |
 | 创建日期 | 2026-08-21 |
 | 定稿日期 | 2026-08-21 |
 | 关联文档 | docs/TODO.yaml 阶段 E3；apps/web/src/theme/tokens.ts；apps/web/src/i18n/index.tsx；apps/web/src/index.css |
@@ -129,3 +129,4 @@ export function chartColors(theme: Theme): ChartPalette {
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
+| 2026-08-21 | 实现完成：新增 src/theme/tokens.ts（Theme/ColorTokens/light/dark/colorTokens/chartColors 9 色×2）；chartColors 硬编码移出 i18n/index.tsx 改为 re-export；三个 ECharts 组件 import 走 theme/tokens；新增 tokens.test.ts 断言 CSS 变量与 tokens 18 对一致（含负例验证）；devDependencies 声明 @types/node；README 同步 | 阶段 E3 开发 |

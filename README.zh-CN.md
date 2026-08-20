@@ -19,6 +19,7 @@
 - **监控大盘**：账号状态卡、用量与轮换趋势图（ECharts）、额度总览、统一事件时间线（请求/冷却/切换/失效/网关 key 生命周期）。
 - **一键启动**：`python start.py` 清理 48700/48701 端口旧进程（含 uvicorn --reload 孤儿进程）并静默启动前后端，带健康检查。
 - **CI/CD 自动打包**：每次 push/PR 自动构建后端 wheel 与前端 dist，组装成完整发布包并验证（全新 venv 安装 + 资源完整性），产物上传为可下载 artifact；打 `v*` tag 时自动发布到对应 GitHub Release。
+- **多语言 + 主题（颜色 token 化）**：内置中/英切换与亮/暗主题；全站颜色统一为 CSS 变量，并由 `src/theme/tokens.ts` 提供 JS 侧镜像（ECharts 等 JS 消费端的单一取色来源；CSS 变量与 TS token 一致性由单测强制）。
 
 ## 架构
 

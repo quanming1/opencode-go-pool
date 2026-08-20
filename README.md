@@ -19,6 +19,7 @@ A single OpenCode Go account is limited by a 5-hour rolling call window. When on
 - **Monitoring dashboard** — account status cards, usage & rotation trend charts (ECharts), quota overview, and a unified event timeline (requests / cooldown / switches / key failures / gateway key lifecycle).
 - **One-click startup** — `python start.py` kills stale processes on ports 48700/48701 (including orphaned uvicorn `--reload` workers) and quietly starts backend + frontend with health checks.
 - **Automatic CI/CD packaging** — every push/PR builds the backend wheel and the frontend `dist`, assembles a complete release package, verifies it (fresh-venv install + asset integrity), and uploads it as a downloadable artifact; `v*` tags publish it to the GitHub Release automatically.
+- **i18n + theming with color tokens** — built-in zh/en switching and light/dark themes; every color is a CSS variable mirrored by `src/theme/tokens.ts` (a single source for ECharts and other JS consumers; consistency between the CSS variables and the TS tokens is enforced by a unit test).
 
 ## Architecture
 
