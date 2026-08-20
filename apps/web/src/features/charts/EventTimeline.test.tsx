@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { EventTimeline } from "./EventTimeline";
 import { buildSummary } from "./eventSummary";
+import { I18nProvider, t as i18nT } from "../../i18n";
+import type { TranslateFn } from "./eventSummary";
 import type { EventItem, EventsResponse } from "../../types/pool";
 
 const events: EventItem[] = [
@@ -52,11 +54,14 @@ const mFetchEventsPage = vi.mocked(fetchEventsPage);
 function pageBody(items: EventItem[], offset: number, has_more: boolean): EventsResponse {
   return { events: items, offset, has_more };
 }
+/** 中文 stub t：用于 buildSummary 纯函数断言（默认 zh 文案）。 */
+const zhT: TranslateFn = (key, vars) => i18nT("zh", key, vars);
+
 
 describe("EventTimeline", () => {
   it("加载第一页并渲染类型徽章与摘要", async () => {
     mFetchEventsPage.mockResolvedValue(pageBody(events, 0, true));
-    render(<EventTimeline />);
+    render(<I18nProvider><EventTimeline /></I18nProvider>);
     await waitFor(() => expect(mFetchEventsPage).toHaveBeenCalledWith(20, 0));
     expect(screen.getByText("请求")).toBeDefined();
     expect(screen.getByText("切换")).toBeDefined();
@@ -68,13 +73,13 @@ describe("EventTimeline", () => {
 
   it("空页显示空态", async () => {
     mFetchEventsPage.mockResolvedValue(pageBody([], 0, false));
-    render(<EventTimeline />);
+    render(<I18nProvider><EventTimeline /></I18nProvider>);
     await waitFor(() => expect(screen.getByText(/暂无事件/)).toBeDefined());
   });
 
   it("下一页/上一页按 offset 翻页，末页禁用下一页", async () => {
     mFetchEventsPage.mockResolvedValue(pageBody(events, 0, true));
-    render(<EventTimeline />);
+    render(<I18nProvider><EventTimeline /></I18nProvider>);
     await waitFor(() => screen.getByText("请求"));
 
     // 第二页
@@ -112,7 +117,7 @@ describe("EventTimeline", () => {
         false,
       ),
     );
-    render(<EventTimeline />);
+    render(<I18nProvider><EventTimeline /></I18nProvider>);
     await waitFor(() => screen.getByText("请求"));
     fireEvent.click(screen.getByText("字段详情"));
     // request_id 行只出现一次（React key 不冲突）
@@ -123,44 +128,49 @@ describe("EventTimeline", () => {
 
 describe("buildSummary", () => {
   it("失败请求显示失败与错误", () => {
-    const s = buildSummary("request", {
-      success: false,
-      status_code: 400,
-      duration_ms: 5,
-      attempt_count: 0,
-      error: { type: "bad_request", message: "bad model" },
-    });
+    const s = buildSummary(
+      "request",
+      {
+        success: false,
+        status_code: 400,
+        duration_ms: 5,
+        attempt_count: 0,
+        error: { type: "bad_request", message: "bad model" },
+      },
+      zhT,
+    );
     expect(s).toContain("失败");
     expect(s).toContain("HTTP 400");
   });
 
   it("冷启动/恢复/控制事件摘要", () => {
     expect(
-      buildSummary("key_cooldown_started", {
-        account_id: "a1",
-        error_type: "quota",
-        reason: "rate limit",
-      }),
+      buildSummary(
+        "key_cooldown_started",
+        { account_id: "a1", error_type: "quota", reason: "rate limit" },
+        zhT,
+      ),
     ).toBe("a1（quota）：rate limit");
     expect(
-      buildSummary("key_cooldown_completed", {
-        account_id: "a1",
-        previous_status: "cooldown",
-      }),
+      buildSummary(
+        "key_cooldown_completed",
+        { account_id: "a1", previous_status: "cooldown" },
+        zhT,
+      ),
     ).toBe("a1（原 cooldown）：已恢复");
     expect(
-      buildSummary("key_disabled", {
-        account_id: "a1",
-        automatic: true,
-        reason: "auto-disabled",
-      }),
+      buildSummary(
+        "key_disabled",
+        { account_id: "a1", automatic: true, reason: "auto-disabled" },
+        zhT,
+      ),
     ).toBe("a1（自动）：auto-disabled");
-    expect(buildSummary("gateway_key_created", { key_id: 7, label: "ftre" })).toBe(
+    expect(buildSummary("gateway_key_created", { key_id: 7, label: "ftre" }, zhT)).toBe(
       "#7（ftre）",
     );
   });
 
   it("未知类型回退为原始 JSON", () => {
-    expect(buildSummary("weird_type", { a: 1 })).toBe('{"a":1}');
+    expect(buildSummary("weird_type", { a: 1 }, zhT)).toBe('{"a":1}');
   });
 });

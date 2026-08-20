@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import App from "../App";
+import { I18nProvider } from "../i18n";
 
 // 面板级 mock：App 只验证布局与 tab 切换
 vi.mock("../features/usage/UsagePanel", () => ({
@@ -12,7 +13,7 @@ vi.mock("../features/keys/KeysPanel", () => ({
 
 describe("App 分栏布局与 Tab 切换", () => {
   it("渲染页头与左侧 tab 导航", () => {
-    render(<App />);
+    render(<I18nProvider><App /></I18nProvider>);
     expect(screen.getByText("OpenCode Go Pool")).toBeDefined();
     expect(screen.getByTestId("sidebar")).toBeDefined();
     expect(screen.getByTestId("tab-usage")).toBeDefined();
@@ -20,7 +21,7 @@ describe("App 分栏布局与 Tab 切换", () => {
   });
 
   it("默认显示用量信息 tab，切换后显示 key 管理", () => {
-    render(<App />);
+    render(<I18nProvider><App /></I18nProvider>);
     expect(screen.getByTestId("usage-panel")).toBeDefined();
 
     fireEvent.click(screen.getByTestId("tab-keys"));

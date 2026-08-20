@@ -1,10 +1,11 @@
-/** 左侧 tab 导航（C3 FR7 左右分栏）。 */
+/** 左侧 tab 导航（C3 FR7 左右分栏；E2 i18n 文案）。 */
+import { useI18n } from "../i18n";
 
 export type TabId = "usage" | "keys";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "usage", label: "用量信息" },
-  { id: "keys", label: "API Key 管理" },
+const TABS: { id: TabId; labelKey: "nav.usage" | "nav.keys" }[] = [
+  { id: "usage", labelKey: "nav.usage" },
+  { id: "keys", labelKey: "nav.keys" },
 ];
 
 export function Sidebar({
@@ -14,17 +15,18 @@ export function Sidebar({
   active: TabId;
   onChange: (tab: TabId) => void;
 }) {
+  const { t } = useI18n();
   return (
     <nav className="sidebar" data-testid="sidebar">
-      {TABS.map((t) => (
+      {TABS.map((tab) => (
         <button
-          key={t.id}
+          key={tab.id}
           type="button"
-          className={`sidebar-tab${active === t.id ? " sidebar-tab--active" : ""}`}
-          onClick={() => onChange(t.id)}
-          data-testid={`tab-${t.id}`}
+          className={`sidebar-tab${active === tab.id ? " sidebar-tab--active" : ""}`}
+          onClick={() => onChange(tab.id)}
+          data-testid={`tab-${tab.id}`}
         >
-          {t.label}
+          {t(tab.labelKey)}
         </button>
       ))}
     </nav>

@@ -45,6 +45,7 @@
 
 ### Added
 
+- E2 中英文切换 + 主题切换：自研轻量 i18n（zh/en 字典 + I18nProvider/useI18n，localStorage 持久化，未新增依赖）；CSS 变量双主题（:root 浅色 + `html[data-theme="dark"]` 深色，全站含 ECharts 动态取色）；header 语言/主题切换控件；13 个组件文案全部 t() 化、字典 key 一致性单测（vitest 34→38、eslint 0、build 通过；playwright 实测切 EN/Dark 即时生效且刷新持久化、无首帧闪烁）
 - E1 响应式开发：建立 1024/768/576 断点体系（收敛旧 900/720）；窄屏（≤576）侧栏折叠为顶部 tab、内容区占满全宽；账号卡/概览/额度均值网格列改 `minmax(0,1fr)` 防内容撑破；keys 表格窄屏容器横滚；事件时间线小屏可换行；账号卡头部文本省略保护。playwright 实测 360/480/768/1024/1440 五视口无横向溢出（vitest 34 + eslint 0 + build 通过）
 
 ### Changed

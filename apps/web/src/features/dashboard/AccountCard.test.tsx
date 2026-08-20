@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { AccountCard } from "./AccountCard";
 import type { AccountQuota, PoolAccount } from "../../types/pool";
+import { I18nProvider } from "../../i18n";
 
 const account: PoolAccount = {
   id: "a1",
@@ -42,9 +43,9 @@ const quota: AccountQuota = {
 
 describe("AccountCard C5 额度", () => {
   it("展示滚动/每周/每月百分比与重置时间", () => {
-    render(<AccountCard account={account} quota={quota} />);
+    render(<I18nProvider><AccountCard account={account} quota={quota} /></I18nProvider>);
     expect(screen.getByTestId("quota-block")).toBeDefined();
-    expect(screen.getByText("滚动")).toBeDefined();
+    expect(screen.getByText("滚动额度")).toBeDefined();
     expect(screen.getByText("已用 2%")).toBeDefined();
     expect(screen.getByText("重置于 57 分钟")).toBeDefined();
     expect(screen.getByText("已限额")).toBeDefined();
@@ -55,12 +56,12 @@ describe("AccountCard C5 额度", () => {
   });
 
   it("额度失败显示额度未知", () => {
-    render(<AccountCard account={account} quota={{ account_id: "a1", quota: null, error: "http 401" }} />);
+    render(<I18nProvider><AccountCard account={account} quota={{ account_id: "a1", quota: null, error: "http 401" }} /></I18nProvider>);
     expect(screen.getByText("额度未知（http 401）")).toBeDefined();
   });
 
   it("尚未返回额度时不渲染额度区块", () => {
-    render(<AccountCard account={account} />);
+    render(<I18nProvider><AccountCard account={account} /></I18nProvider>);
     expect(screen.queryByTestId("quota-block")).toBeNull();
   });
 });
