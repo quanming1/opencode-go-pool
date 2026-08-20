@@ -127,14 +127,14 @@
   padding: 24px 0;
 }
 
-/* C2 轮换事件时间线 */
-.switch-timeline__list {
+/* C4 统一事件时间线 */
+.event-timeline__list {
   list-style: none;
   display: flex;
   flex-direction: column;
 }
 
-.switch-timeline__item {
+.event-timeline__item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -143,50 +143,54 @@
   font-size: 12px;
 }
 
-.switch-timeline__item:last-child {
+.event-timeline__item:last-child {
   border-bottom: none;
 }
 
-.switch-timeline__time {
+.event-timeline__time {
   color: var(--color-text-secondary);
   min-width: 150px;
+  flex-shrink: 0;
 }
 
-.switch-timeline__account {
-  font-weight: 600;
-  min-width: 120px;
-}
-
-.switch-timeline__reason {
+.event-timeline__summary {
   color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 360px;
+  max-width: 460px;
 }
 
-.switch-kind {
+.event-type {
   border: 1px solid var(--color-border);
   padding: 0 6px;
   font-size: 12px;
+  flex-shrink: 0;
+  color: var(--color-text-primary);
 }
 
-.switch-kind--recover,
-.switch-kind--enable,
-.switch-kind--clear,
-.switch-kind--success {
+/* 成功/恢复类：绿色 */
+.event-type--request,
+.event-type--key_cooldown_completed,
+.event-type--key_enabled,
+.event-type--key_cooldown_cleared,
+.event-type--gateway_key_created {
   color: var(--color-ok);
   border-color: var(--color-ok);
 }
 
-.switch-kind--quota {
+/* 冷却/切换类：橙色 */
+.event-type--key_cooldown_started,
+.event-type--key_switch {
   color: var(--color-warn);
   border-color: var(--color-warn);
 }
 
-.switch-kind--auth,
-.switch-kind--disable,
-.switch-kind--auto_disable {
+/* 失败/禁用/全部失效类：红色 */
+.event-type--key_disabled,
+.event-type--all_keys_invalid,
+.event-type--all_keys_unavailable,
+.event-type--gateway_key_revoked {
   color: var(--color-danger);
   border-color: var(--color-danger);
 }

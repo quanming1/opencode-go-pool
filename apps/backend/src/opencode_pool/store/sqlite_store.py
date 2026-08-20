@@ -1,22 +1,25 @@
-"""SQLite 存储层（B4）：账号运行时状态与切换历史的持久化。
+"""SQLite 存储层（B4 + C4）：账号运行时状态、用量事件与统一事件日志的持久化。
 
 设计：
 - 单实例单文件；WAL 模式提升并发读。
-- `save_state` 用 UPSERT 写账号一行；`write_event` 追加历史并裁剪到最近 N 条。
+- `save_state` 用 UPSERT 写账号一行；`save_event` 追加统一事件并裁剪到最近 N 条（C4）。
+- 启动时 `migrate_switch_history` 把旧 switch_history 表逐行迁入 events 后 DROP（C4）。
 - DB 不可写（路径只读/目录失败）→ 构造时记 warning，所有写调用安全降级（不抛），
   保证服务在持久化不可用时仍可运行（FR7 / AC8）。
 """
 
+import json
 import logging
 import sqlite3
 from pathlib import Path
 
 from opencode_pool.accounts.models import Account
+from opencode_pool.events.recorder import SCHEMA_VERSION
 
 logger = logging.getLogger("opencode_pool.store.sqlite")
 
-# 默认保留的切换历史条数
-DEFAULT_HISTORY_LIMIT = 100
+# 默认保留的统一事件条数（C4：保留最近 5000 条）
+DEFAULT_EVENT_LIMIT = 5000
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS accounts (
@@ -27,13 +30,6 @@ CREATE TABLE IF NOT EXISTS accounts (
     error_count INTEGER NOT NULL DEFAULT 0,
     consecutive_failures INTEGER NOT NULL DEFAULT 0,
     enabled INTEGER NOT NULL DEFAULT 1
-);
-CREATE TABLE IF NOT EXISTS switch_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ts TEXT NOT NULL,
-    account_id TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    reason TEXT
 );
 CREATE TABLE IF NOT EXISTS usage_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,6 +48,13 @@ CREATE TABLE IF NOT EXISTS gateway_keys (
     label TEXT NOT NULL,
     created_at TEXT NOT NULL,
     revoked_at TEXT
+);
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    event_time TEXT NOT NULL,
+    data_json TEXT NOT NULL,
+    meta_json TEXT NOT NULL
 );
 """
 
@@ -75,12 +78,12 @@ class AccountStore:
     def __init__(
         self,
         db_path: str,
-        history_limit: int = DEFAULT_HISTORY_LIMIT,
         usage_limit: int = 2000,
+        event_limit: int = DEFAULT_EVENT_LIMIT,
     ) -> None:
         self._db_path = str(db_path)
-        self._history_limit = history_limit
         self._usage_limit = usage_limit
+        self._event_limit = event_limit
         self._conn: sqlite3.Connection | None = None
         self._available = False
         self._connect()
@@ -101,6 +104,8 @@ class AccountStore:
             self._conn.executescript(_SCHEMA)
             self._conn.commit()
             self._available = True
+            # C4：旧 switch_history 表存在则迁入 events 后删除（失败降级不影响服务）
+            self.migrate_switch_history()
         except (sqlite3.Error, OSError) as exc:
             logger.warning("[store] SQLite 不可用（%s），退化为纯内存持久化", exc)
             self._conn = None
@@ -152,42 +157,101 @@ class AccountStore:
         except sqlite3.Error as exc:
             logger.warning("[store] 保存账号 %s 状态失败: %s", account.id, exc)
 
-    def write_event(self, ts: str, account_id: str, kind: str, reason: str | None) -> None:
-        """追加一条切换历史并裁剪到最近 N 条。"""
+    # ---- C4：统一事件日志 ----
+
+    def save_event(self, type_: str, event_time: str, data_json: str, meta_json: str) -> None:
+        """追加一条统一事件并裁剪到最近 N 条（默认 5000）。"""
         if not self._available or self._conn is None:
             return
         try:
             self._conn.execute(
-                "INSERT INTO switch_history (ts, account_id, kind, reason) VALUES (?, ?, ?, ?)",
-                (ts, account_id, kind, reason),
+                "INSERT INTO events (type, event_time, data_json, meta_json) "
+                "VALUES (?, ?, ?, ?)",
+                (type_, event_time, data_json, meta_json),
             )
             self._conn.execute(
-                "DELETE FROM switch_history WHERE id NOT IN "
-                "(SELECT id FROM switch_history ORDER BY id DESC LIMIT ?)",
-                (self._history_limit,),
+                "DELETE FROM events WHERE id NOT IN "
+                "(SELECT id FROM events ORDER BY id DESC LIMIT ?)",
+                (self._event_limit,),
             )
             self._conn.commit()
         except sqlite3.Error as exc:
-            logger.warning("[store] 写切换历史失败: %s", exc)
+            logger.warning("[store] 写统一事件失败: %s", exc)
 
-    def load_history(self, limit: int = 0) -> list[dict]:
-        """返回持久化历史（新→旧），用于恢复或校验。"""
+    def query_events(self, limit: int = 100, types: list[str] | None = None) -> list[dict]:
+        """统一事件（新→旧），支持 type 白名单筛选与条数限制。
+
+        单条 data/meta JSON 损坏 → 跳过该条，不影响其余。
+        """
         if not self._available or self._conn is None:
             return []
         try:
-            sql = "SELECT ts, account_id, kind, reason FROM switch_history ORDER BY id DESC"
-            if limit and limit > 0:
-                sql += " LIMIT ?"
-                rows = self._conn.execute(sql, (limit,)).fetchall()
-            else:
-                rows = self._conn.execute(sql).fetchall()
-            return [
-                {"ts": r[0], "account_id": r[1], "kind": r[2], "reason": r[3]}
-                for r in rows
-            ]
+            sql = "SELECT type, event_time, data_json, meta_json FROM events"
+            params: list = []
+            if types:
+                placeholders = ",".join("?" * len(types))
+                sql += f" WHERE type IN ({placeholders})"
+                params.extend(types)
+            sql += " ORDER BY id DESC LIMIT ?"
+            params.append(max(1, min(int(limit), self._event_limit)))
+            rows = self._conn.execute(sql, params).fetchall()
         except sqlite3.Error as exc:
-            logger.warning("[store] 读切换历史失败: %s", exc)
+            logger.warning("[store] 读统一事件失败: %s", exc)
             return []
+        out: list[dict] = []
+        for type_, event_time, data_json, meta_json in rows:
+            try:
+                out.append(
+                    {
+                        "type": type_,
+                        "event_time": event_time,
+                        "data": json.loads(data_json) if data_json else {},
+                        "meta": json.loads(meta_json) if meta_json else {},
+                    }
+                )
+            except json.JSONDecodeError:
+                continue  # 单条坏数据降级跳过
+        return out
+
+    def migrate_switch_history(self) -> int:
+        """把旧 switch_history 表逐行迁移为统一事件后 DROP（幂等，C4）。
+
+        旧表不存在/已迁移 → 返回 0；迁移失败 → 保留旧表并降级（不影响服务）。
+        """
+        if not self._available or self._conn is None:
+            return 0
+        try:
+            row = self._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='switch_history'"
+            ).fetchone()
+            if row is None:
+                return 0
+            rows = self._conn.execute(
+                "SELECT ts, account_id, kind, reason FROM switch_history ORDER BY id"
+            ).fetchall()
+            meta_json = json.dumps(
+                {"source": "migrated_switch_history", "schema_version": SCHEMA_VERSION},
+                ensure_ascii=False,
+            )
+            for ts, account_id, kind, reason in rows:
+                type_, data = _legacy_to_event(account_id, kind, reason)
+                self._conn.execute(
+                    "INSERT INTO events (type, event_time, data_json, meta_json) "
+                    "VALUES (?, ?, ?, ?)",
+                    (type_, ts, json.dumps(data, ensure_ascii=False), meta_json),
+                )
+            self._conn.execute("DROP TABLE switch_history")
+            self._conn.commit()
+            if rows:
+                logger.info("[store] 迁移 %d 条 switch_history → events（已删除旧表）", len(rows))
+            return len(rows)
+        except sqlite3.Error as exc:
+            logger.warning("[store] 迁移 switch_history 失败（保留旧表）: %s", exc)
+            try:
+                self._conn.rollback()
+            except sqlite3.Error:
+                pass
+            return 0
 
     # ---- C2：用量统计 ----
 
@@ -389,3 +453,50 @@ class AccountStore:
             except sqlite3.Error:
                 pass
             self._conn = None
+
+
+def _legacy_to_event(account_id: str, kind: str, reason: str | None) -> tuple[str, dict]:
+    """旧 switch_history 行 → (事件 type, data) 迁移映射（C4）。
+
+    旧 kind 语义：recover=冷却到期恢复；auto_disable/disable/enable/clear
+    为人工或自动状态操作；其余（quota/auth/server/network/error/bad_request）
+    均为账号进入冷却的原因。
+    """
+    if kind == "recover":
+        return "key_cooldown_completed", {
+            "account_id": account_id,
+            "previous_status": "cooldown",
+            "reason": reason,
+        }
+    if kind == "auto_disable":
+        return "key_disabled", {
+            "account_id": account_id,
+            "reason": reason,
+            "automatic": True,
+        }
+    if kind == "disable":
+        return "key_disabled", {
+            "account_id": account_id,
+            "reason": reason,
+            "automatic": False,
+        }
+    if kind == "enable":
+        return "key_enabled", {
+            "account_id": account_id,
+            "reason": reason,
+        }
+    if kind == "clear":
+        return "key_cooldown_cleared", {
+            "account_id": account_id,
+            "previous_status": "cooldown",
+            "reason": reason,
+        }
+    # 其余：进入冷却（旧表未存冷却参数，补默认值）
+    return "key_cooldown_started", {
+        "account_id": account_id,
+        "reason": reason,
+        "error_type": kind,
+        "cooldown_until": None,
+        "cooldown_seconds": 0,
+        "consecutive_failures": 0,
+    }

@@ -22,44 +22,45 @@ const sample = {
     per_account: [],
     buckets: [],
   },
-  switchEvents: [],
+  events: [],
 };
 
 // mock 三个 service
 vi.mock("../../services/api", () => ({
   fetchAccounts: vi.fn(),
   fetchStats: vi.fn(),
-  fetchSwitchHistory: vi.fn(),
+  fetchEvents: vi.fn(),
 }));
 
 import {
   fetchAccounts,
+  fetchEvents,
   fetchStats,
-  fetchSwitchHistory,
 } from "../../services/api";
 
 const mFetchAccounts = vi.mocked(fetchAccounts);
 const mFetchStats = vi.mocked(fetchStats);
-const mFetchSwitchHistory = vi.mocked(fetchSwitchHistory);
+const mFetchEvents = vi.mocked(fetchEvents);
 
 describe("useAccountPolling", () => {
   it("拉取三个接口并进入非 loading 态", async () => {
     mFetchAccounts.mockResolvedValue(sample.accounts);
     mFetchStats.mockResolvedValue(sample.stats);
-    mFetchSwitchHistory.mockResolvedValue([]);
+    mFetchEvents.mockResolvedValue([]);
 
     const { result, unmount } = renderHook(() => useAccountPolling(50));
     await waitFor(() => expect(mFetchAccounts).toHaveBeenCalled());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.accounts).toEqual(sample.accounts);
     expect(result.current.stats?.totals.request_count).toBe(1);
+    expect(result.current.events).toEqual([]);
     unmount();
   });
 
   it("任一接口失败时置 error 且不再 loading", async () => {
     mFetchAccounts.mockRejectedValue(new Error("boom"));
     mFetchStats.mockResolvedValue(sample.stats);
-    mFetchSwitchHistory.mockResolvedValue([]);
+    mFetchEvents.mockResolvedValue([]);
 
     const { result, unmount } = renderHook(() => useAccountPolling(50));
     await waitFor(() => expect(result.current.error).toBe("boom"));

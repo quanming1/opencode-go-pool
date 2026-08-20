@@ -2,17 +2,17 @@ import { useAccountPolling } from "../dashboard/useAccountPolling";
 import { SummaryCards } from "../dashboard/SummaryCards";
 import { AccountCard } from "../dashboard/AccountCard";
 import { UsageCharts } from "../charts/UsageCharts";
-import { SwitchTimeline } from "../charts/SwitchTimeline";
+import { EventTimeline } from "../charts/EventTimeline";
 import { AccountControls } from "./AccountControls";
 import { useCallback } from "react";
 
 /**
  * Tab1：用量信息（C3 FR8）。
- * 汇总卡 + 账号卡（含控制按钮）+ 用量趋势图 + 轮换时间线。
+ * 汇总卡 + 账号卡（含控制按钮）+ 用量趋势图 + 统一事件时间线。
  * 控制操作后 forceTick 立即拉取最新数据（不等下一轮询）。
  */
 export function UsagePanel() {
-  const { accounts, stats, switchEvents, error, loading, refresh } = useAccountPolling();
+  const { accounts, stats, events, error, loading, refresh } = useAccountPolling();
   const onControlChanged = useCallback(() => void refresh(), [refresh]);
 
   return (
@@ -49,8 +49,8 @@ export function UsagePanel() {
       </section>
 
       <section className="card">
-        <h2 className="card-title">轮换事件</h2>
-        <SwitchTimeline events={switchEvents} />
+        <h2 className="card-title">事件时间线</h2>
+        <EventTimeline events={events} />
       </section>
     </div>
   );

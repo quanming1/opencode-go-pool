@@ -54,7 +54,7 @@ curl http://127.0.0.1:48700/health
 curl http://127.0.0.1:48700/api/accounts
 ```
 
-浏览器打开 http://localhost:48701 查看账号状态大盘、用量趋势与轮换事件。
+浏览器打开 http://localhost:48701 查看账号状态大盘、用量趋势与统一事件时间线。
 
 详细操作手册见 [docs/usage.md](docs/usage.md)。
 
@@ -65,10 +65,11 @@ curl http://127.0.0.1:48700/api/accounts
 | `/health` | GET | 健康检查（状态 + 版本） |
 | `/api/accounts` | GET | 账号池脱敏视图（状态/冷却剩余/失败计数，无密钥） |
 | `/api/stats?hours=24` | GET | 用量聚合（按小时桶 + 按账号汇总） |
-| `/api/switch-history?limit=50` | GET | 账号切换事件历史（中文语义标签） |
+| `/api/events?limit=100&type=request,key_switch` | GET | 统一事件日志（type/data/meta/time；type 逗号分隔筛选） |
 | `/api/v1/responses` | POST | OpenAI Responses 透明转发（支持流式 SSE） |
 | `/api/v1/chat/completions` | POST | OpenAI Chat Completions 透明转发（支持流式 SSE） |
 | `/api/v1/models` | GET | 账号池合并模型清单 |
+| `/v1/*` | - | 上述三个转发端点的标准 OpenAI SDK 路径别名 |
 
 转发示例：
 

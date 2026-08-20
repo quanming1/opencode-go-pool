@@ -11,7 +11,7 @@ FastAPI 代理核心：账号池管理、Responses 协议透明转发、额度�
 | usage | `src/opencode_pool/usage/` | 转发用量记录（请求数/token）、统计聚合、切换历史查询（中文语义标签） |
 | store | `src/opencode_pool/store/` | SQLite 持久化：账号运行时状态、切换历史、用量事件（DB 不可写自动降级纯内存） |
 | scheduler | `src/opencode_pool/scheduler.py` | 后台冷却扫描（周期恢复到期账号，随应用 lifespan 启停） |
-| api | `src/opencode_pool/api/` | HTTP 路由：`/api/accounts`（脱敏视图）、`/api/stats`、`/api/switch-history` |
+| api | `src/opencode_pool/api/` | HTTP 路由：`/api/accounts`（脱敏视图）、`/api/stats`、`/api/events` |
 | config | `src/opencode_pool/config.py` | pydantic-settings 配置（env + .env，严格模式拒绝未知字段） |
 
 ## 启动
@@ -36,10 +36,11 @@ ruff check src tests
 ## SQLite 数据说明
 
 - 默认路径：`data/opencode_pool.db`（`DB_PATH` 可覆盖；目录自动创建；已 gitignore）。
-- 三张表：
+- 四张表：
   - `accounts`：账号运行时状态（status / cooldown_until / consecutive_failures / enabled 等），重启自动恢复（到期冷却按当前时间懒恢复）；
-  - `switch_history`：账号切换事件（最近 100 条，环形裁剪）；
-  - `usage_events`：转发用量事件（最近 2000 条，含 success/error 分类与 token 数）。
+  - `events`：统一事件日志（type/data/meta/time，最近 5000 条；C4 启动时自动迁移旧 `switch_history` 后删除该表）；
+  - `usage_events`：转发用量事件（最近 2000 条，含 success/error 分类与 token 数，统计投影）；
+  - `gateway_keys`：网关访问 key（SHA-256 哈希 + label + 吊销时间）。
 - DB 不可写（路径只读等）时服务可启动，退化为纯内存（日志有警告）。
 
 ## 账号配置

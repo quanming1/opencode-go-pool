@@ -1,9 +1,19 @@
-"""轮换强化（B3）测试：自动恢复、连续失败阈值、Retry-After、切换历史。"""
+"""轮换强化（B3）测试：自动恢复、连续失败阈值、Retry-After、统一事件。"""
 
 from datetime import datetime, timedelta
 
 from opencode_pool.accounts.models import Account
 from opencode_pool.accounts.pool import AccountPool
+
+
+class _FakeRecorder:
+    """内存事件收集器（C4 测试用，与 EventRecorder 同签名）。"""
+
+    def __init__(self) -> None:
+        self.events: list[dict] = []
+
+    def record(self, type_, data, meta=None) -> None:
+        self.events.append({"type": str(type_), "data": data, "meta": meta or {}})
 
 
 def _fake_now(start: datetime):
@@ -108,32 +118,78 @@ def test_clear_account_resets_consecutive_failures():
     assert pool.account("a1").status.value == "healthy"
 
 
-# ---- 切换历史 ----
+# ---- 统一事件（C4）----
 
-def test_switch_history_records_events():
+def test_state_events_emitted():
     now = _fake_now(datetime(2026, 1, 1))
-    pool = AccountPool(accounts=_accounts(), now=now, history_limit=5)
+    rec = _FakeRecorder()
+    pool = AccountPool(accounts=_accounts(), now=now, event_recorder=rec)
     pool.mark_down("a1", "quota", kind="quota")
     pool.disable("a2", "manual")
     pool.enable("a2")
-    hist = pool.switch_history()
-    kinds = [e["kind"] for e in hist]
-    assert kinds == ["enable", "disable", "quota"]
-    # 最新在前
-    assert hist[0]["kind"] == "enable"
-    assert hist[0]["account_id"] == "a2"
+    types = [e["type"] for e in rec.events]
+    assert types == ["key_cooldown_started", "key_disabled", "key_enabled"]
+    # 冷却事件带完整业务字段
+    cooldown = rec.events[0]["data"]
+    assert cooldown["account_id"] == "a1"
+    assert cooldown["error_type"] == "quota"
+    assert cooldown["cooldown_until"] is not None
+    assert cooldown["cooldown_seconds"] > 0
+    assert cooldown["consecutive_failures"] == 1
+    # 手动禁用为 automatic=False
+    assert rec.events[1]["data"]["automatic"] is False
+    # 事件 meta 带来源
+    assert rec.events[0]["meta"]["source"] == "account_pool"
 
 
-def test_switch_history_ring_buffer_limit():
+def test_auto_disable_emits_key_disabled():
     now = _fake_now(datetime(2026, 1, 1))
-    pool = AccountPool(accounts=_accounts(), now=now, history_limit=3, max_consecutive_failures=10)
-    for i in range(5):
-        pool.mark_down("a1", f"e{i}", kind="error")
-    hist = pool.switch_history()
-    assert len(hist) == 3
-    # 环形保留最近 3 条
-    assert hist[0]["reason"] == "e4"
-    assert hist[2]["reason"] == "e2"
+    rec = _FakeRecorder()
+    pool = AccountPool(
+        accounts=_accounts(), now=now, max_consecutive_failures=2, event_recorder=rec
+    )
+    pool.mark_down("a1", "quota", kind="quota")
+    pool.mark_down("a1", "quota", kind="quota")
+    types = [e["type"] for e in rec.events]
+    assert types == ["key_cooldown_started", "key_disabled"]
+    disabled = rec.events[-1]["data"]
+    assert disabled["account_id"] == "a1"
+    assert disabled["automatic"] is True
+    assert "auto-disabled" in disabled["reason"]
+
+
+def test_cooldown_recovery_emits_completed():
+    now = _fake_now(datetime(2026, 1, 1))
+    rec = _FakeRecorder()
+    pool = AccountPool(accounts=_accounts(), now=now, cooldown_seconds=100, event_recorder=rec)
+    pool.mark_down("a1", "quota")
+    now.advance(101)
+    assert pool.scan_cooldowns() == 1
+    completed = rec.events[-1]
+    assert completed["type"] == "key_cooldown_completed"
+    assert completed["data"]["account_id"] == "a1"
+    assert completed["data"]["previous_status"] == "cooldown"
+
+
+def test_clear_emits_cooldown_cleared():
+    now = _fake_now(datetime(2026, 1, 1))
+    rec = _FakeRecorder()
+    pool = AccountPool(accounts=_accounts(), now=now, event_recorder=rec)
+    pool.mark_down("a1", "quota")
+    pool.clear_account("a1")
+    cleared = rec.events[-1]
+    assert cleared["type"] == "key_cooldown_cleared"
+    assert cleared["data"]["account_id"] == "a1"
+    assert cleared["data"]["previous_status"] == "cooldown"
+    assert cleared["data"]["reason"] == "manual clear"
+
+
+def test_pool_without_recorder_still_works():
+    """未注入事件记录器时状态机照常运转（降级）。"""
+    now = _fake_now(datetime(2026, 1, 1))
+    pool = AccountPool(accounts=_accounts(), now=now)
+    assert pool.mark_down("a1", "quota")
+    assert pool.account("a1").status.value == "cooldown"
 
 
 # ---- public_view 扩展 ----

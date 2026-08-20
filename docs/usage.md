@@ -84,12 +84,22 @@ curl http://127.0.0.1:48700/api/v1/responses ^
 
 成功响应携带 `X-Pool-Account` 响应头（本次使用的账号 id）。流式请求把 `"stream"` 改为 `true`（SSE 逐块透传）。
 
-### 3.4 查看统计与切换历史
+### 3.4 查看统计与统一事件日志
 
 ```bash
 curl http://127.0.0.1:48700/api/stats
-curl http://127.0.0.1:48700/api/switch-history
+curl http://127.0.0.1:48700/api/events
+curl "http://127.0.0.1:48700/api/events?type=request,key_switch&limit=50"
 ```
+
+事件为统一契约（每项严格含 `type` / `data` / `meta` / `time`）：
+
+- `request`：每次入站请求一条（request_id、成功与否、协议/模型/状态码/耗时、尝试链 attempts、token、错误详情）；
+- `key_cooldown_started` / `key_cooldown_completed` / `key_cooldown_cleared`：账号冷却开始/到期恢复/手动清除；
+- `key_switch`：失败后从 A 账号切到 B 账号（from→to + 原因）；
+- `all_keys_invalid` / `all_keys_unavailable`：全部账号额度/鉴权失效 或 网络/服务不可用；
+- `key_disabled` / `key_enabled`：账号禁用/启用；
+- `gateway_key_created` / `gateway_key_revoked`：网关访问 key 创建/吊销（不含明文）。
 
 ### 3.5 大盘可视化
 
@@ -98,7 +108,7 @@ curl http://127.0.0.1:48700/api/switch-history
 - 顶部统计卡：可用 / 冷却中 / 已禁用；
 - 账号卡片：状态徽章、冷却剩余、连续/累计失败、最近错误；
 - 用量趋势图：近 24h 请求量与 Token（每 10s 自动刷新）；
-- 轮换事件时间线：何时哪个账号被冷却/恢复/禁用（中文语义标签）。
+- 事件时间线：统一事件流（请求成功/失败、切换、冷却、全部失效等，带类型徽章）。
 
 ## 4. 接入客户端（如 ftre）
 

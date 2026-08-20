@@ -1,7 +1,11 @@
-"""usage 存储层与 recorder 单测（C2）。"""
+"""usage 存储层与 recorder 单测（C2）。
+
+C4 后：switch_history / kind_label 已删除，状态类事件统一走 events 模块
+（见 test_events.py）。
+"""
 
 from opencode_pool.store.sqlite_store import AccountStore
-from opencode_pool.usage.recorder import UsageRecorder, kind_label
+from opencode_pool.usage.recorder import UsageRecorder
 
 
 def _store(tmp_path) -> AccountStore:
@@ -69,21 +73,3 @@ def test_usage_recorder_stats_roundtrip(tmp_path):
     assert stats["totals"]["request_count"] == 2
     assert stats["totals"]["error_count"] == 1
     store.close()
-
-
-def test_switch_history_with_labels(tmp_path):
-    store = _store(tmp_path)
-    store.write_event("2026-08-20T09:00:00", "a1", "quota", "rate limit")
-    rec = UsageRecorder(store)
-    events = rec.switch_history(limit=10)
-    assert len(events) == 1
-    assert events[0]["kind"] == "quota"
-    assert events[0]["kind_label"] == "额度限制"
-    store.close()
-
-
-def test_kind_label_mapping():
-    assert kind_label("quota") == "额度限制"
-    assert kind_label("auth") == "鉴权失败"
-    assert kind_label("recover") == "恢复"
-    assert kind_label("unknown") == "unknown"

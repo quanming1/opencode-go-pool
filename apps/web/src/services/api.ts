@@ -3,11 +3,11 @@
 import type {
   AccountsResponse,
   CreatedGatewayKey,
+  EventItem,
+  EventsResponse,
   GatewayKey,
   PoolAccount,
   StatsResponse,
-  SwitchEvent,
-  SwitchHistoryResponse,
 } from "../types/pool";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -41,10 +41,9 @@ export async function fetchStats(hours = 24): Promise<StatsResponse> {
   return fetchJson<StatsResponse>(`/api/stats?hours=${hours}`);
 }
 
-export async function fetchSwitchHistory(limit = 50): Promise<SwitchEvent[]> {
-  const data = await fetchJson<SwitchHistoryResponse>(
-    `/api/switch-history?limit=${limit}`,
-  );
+export async function fetchEvents(limit = 100, type = ""): Promise<EventItem[]> {
+  const query = type ? `&type=${encodeURIComponent(type)}` : "";
+  const data = await fetchJson<EventsResponse>(`/api/events?limit=${limit}${query}`);
   return data.events;
 }
 
@@ -108,4 +107,4 @@ export async function revokeGatewayKey(id: number): Promise<{ ok: boolean }> {
   return (await res.json()) as { ok: boolean };
 }
 
-export type { PoolAccount, StatsResponse, SwitchEvent } from "../types/pool";
+export type { EventItem, PoolAccount, StatsResponse } from "../types/pool";

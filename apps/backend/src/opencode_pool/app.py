@@ -14,6 +14,7 @@ from opencode_pool.api.keys import router as keys_router
 from opencode_pool.api.usage import router as usage_router
 from opencode_pool.auth.gateway_key import KeyManager
 from opencode_pool.config import settings
+from opencode_pool.events.recorder import EventRecorder
 from opencode_pool.proxy import router as proxy_router
 from opencode_pool.proxy.forwarder import Forwarder
 from opencode_pool.proxy.router import alias_router as proxy_alias_router
@@ -30,7 +31,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
         config_path: 账号配置文件路径；None 时用默认 config/accounts.yaml，
             文件不存在则空账号池（可启动，见 B1 PRD AC6）。
     """
-    pool, store = _build_pool(config_path)
+    pool, store, event_recorder = _build_pool(config_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -53,6 +54,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
     app = FastAPI(title="OpenCode Go Pool", version=__version__, lifespan=lifespan)
     app.state.account_pool = pool
+    # C4：统一事件记录器（与账号池/用量/网关 key 共用同一 SQLite store）
+    app.state.event_recorder = event_recorder
 
     # C2：用量记录器（与账号池共用同一 SQLite store）
     from opencode_pool.usage.recorder import UsageRecorder
@@ -65,15 +68,17 @@ def create_app(config_path: str | None = None) -> FastAPI:
         store,
         master_key=_load_master_key(),
         auth_required=_load_auth_flag(),
+        event_recorder=event_recorder,
     )
     app.state.key_manager = key_manager
 
-    # 代理转发器（B2：多账号外层 + 透明转发；C2：记录用量）
+    # 代理转发器（B2：多账号外层 + 透明转发；C2：记录用量；C4：记录统一事件）
     app.state.forwarder = Forwarder(
         pool=pool,
         upstream_base_url=settings.upstream_base_url,
         timeout=settings.upstream_timeout,
         usage_recorder=recorder,
+        event_recorder=event_recorder,
     )
 
     app.include_router(accounts_router)
@@ -81,6 +86,9 @@ def create_app(config_path: str | None = None) -> FastAPI:
     app.include_router(proxy_alias_router)
     app.include_router(usage_router)
     app.include_router(keys_router)
+    from opencode_pool.api.events import router as events_router
+
+    app.include_router(events_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -105,25 +113,31 @@ def _load_auth_flag() -> bool:
     return raw in ("on", "true", "1")
 
 
-def _build_pool(config_path: str | None) -> tuple[AccountPool, AccountStore]:
-    """构建账号池与共用 store：加载配置 + B3 参数 + B4 持久化 + 从 DB 恢复。
+def _build_pool(
+    config_path: str | None,
+) -> tuple[AccountPool, AccountStore, EventRecorder]:
+    """构建账号池 + 共用 store + 统一事件记录器。
 
     Args:
         config_path: 账号配置文件路径；None 用默认。
 
     Returns:
-        (pool, store) —— store 供 UsageRecorder 共用（C2）。
+        (pool, store, event_recorder) —— store 供 UsageRecorder 共用（C2），
+        event_recorder 注入账号池状态事件（C4）。
     """
     if config_path is None:
         config_path = "config/accounts.yaml"
     accounts = load_accounts(config_path)
 
-    # B4：SQLite 持久化（DB 不可写时 store.available=False，池退化为纯内存）
+    # B4：SQLite 持久化（DB 不可写时 store.available=False，池退化为纯内存；
+    # C4：构造函数内自动迁移旧 switch_history 表）
     store = AccountStore(settings.db_path)
+    event_recorder = EventRecorder(store)
     pool = AccountPool(
         accounts=accounts,
         max_consecutive_failures=settings.max_consecutive_failures,
         store=store,
+        event_recorder=event_recorder,
     )
 
     # 从 DB 恢复上次运行时状态（冷却/禁用/计数）
@@ -135,7 +149,7 @@ def _build_pool(config_path: str | None) -> tuple[AccountPool, AccountStore]:
     else:
         logger.warning("[app] SQLite 持久化不可用，本次运行状态不会跨重启保留")
 
-    return pool, store
+    return pool, store, event_recorder
 
 
 app = create_app()
