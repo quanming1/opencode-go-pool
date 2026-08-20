@@ -1,0 +1,128 @@
+/* C1 账号状态大盘样式：白色简洁风（无阴影、无圆角，见 AGENTS.md §5）。 */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 统计摘要 */
+.summary-cards {
+  display: flex;
+  gap: 16px;
+}
+
+.summary-card {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  padding: 16px 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.summary-card__num {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.summary-card__label {
+  color: var(--color-text-secondary);
+}
+
+/* 账号列表 */
+.account-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.account-card {
+  border: 1px solid var(--color-border);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.account-card--dimmed {
+  opacity: 0.55;
+}
+
+.account-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-card__name {
+  font-weight: 600;
+}
+
+.account-card__id {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  margin-right: auto;
+}
+
+.account-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-card__field {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.account-card__value {
+  color: var(--color-text);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.account-card__error {
+  border: 1px solid var(--color-border);
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 状态徽章 */
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+}
+
+.badge-healthy {
+  color: var(--color-ok);
+  border-color: var(--color-ok);
+}
+
+.badge-cooldown {
+  color: var(--color-warn);
+  border-color: var(--color-warn);
+}
+
+.badge-disabled {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* 状态提示 */
+.dashboard-error {
+  border: 1px solid var(--color-warn);
+  padding: 8px 12px;
+  color: var(--color-warn);
+}
+
+.dashboard-empty {
+  color: var(--color-text-secondary);
+  padding: 24px 0;
+}
