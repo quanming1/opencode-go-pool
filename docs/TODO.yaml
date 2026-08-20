@@ -315,10 +315,10 @@ stages:
         acceptance: 7 个 ECharts 组件的 init/resize/dispose 样板收敛为 useEChart（轮询 stats 更新不再重建实例）；AccountsState 死接口删除且全库无引用；vitest 全过 + eslint 0 + build 通过；playwright 实测 7 图渲染无回归
       - id: G6
         title: 优化架构 · 后端 API 层结构性冗余收敛
-        status: in_progress
+        status: done
         date: 2026-08-21
         prd: docs/prd/PRD-G6-arch-cleanup.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/backend/src/opencode_pool/proxy/router.py
           - apps/backend/src/opencode_pool/api/_common.py
