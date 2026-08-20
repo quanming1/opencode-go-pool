@@ -123,6 +123,18 @@ stages:
           - apps/web/src/features/charts/
           - apps/web/src/services/api.ts
         acceptance: 全部通过——pytest 70 + vitest 13 passed、build 成功；/api/stats、/api/switch-history 端到端正常、UI 目检全过
+      - id: C3
+        title: 分 Tab 管理与网关鉴权
+        status: in_progress
+        prd: docs/prd/PRD-C3-tabs-gateway-keys.md
+        prd_status: approved
+        modules:
+          - apps/backend/src/opencode_pool/auth/
+          - apps/backend/src/opencode_pool/api/keys.py
+          - apps/web/src/components/Sidebar.tsx
+          - apps/web/src/features/usage/
+          - apps/web/src/features/keys/
+        acceptance: 左右分栏双 Tab（用量信息+控制按钮 / API Key 管理）+ 转发端点 Bearer 鉴权 + pytest/vitest/build 全绿
   # ---- G 收尾 ----
   - id: G
     name: 收尾
