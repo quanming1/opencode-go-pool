@@ -1,4 +1,6 @@
+# pnpm 独立包声明：apps/web 是单包（无子 workspace 包）
+packages: []
+
+# 允许 esbuild 运行 postinstall 构建脚本（pnpm 10+ 安全策略）
 allowBuilds:
   esbuild: true
-onlyBuiltDependencies:
-  - esbuild
