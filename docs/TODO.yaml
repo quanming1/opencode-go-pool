@@ -87,10 +87,14 @@ stages:
         acceptance: 全部通过——pytest 50 passed、ruff 无警告；主动扫描恢复、Retry-After 动态冷却、连续失败阈值禁用、切换历史全覆盖
       - id: B4
         title: 状态持久化（SQLite）
-        status: todo
+        status: in_progress
+        prd: docs/prd/PRD-B4-sqlite-persistence.md
+        prd_status: approved
         modules:
-          - apps/backend/src/store/
-        acceptance: 重启不丢账号状态 + pytest
+          - apps/backend/src/opencode_pool/store/
+          - apps/backend/tests/test_sqlite_store.py
+          - apps/backend/tests/test_persistence.py
+        acceptance: 重启不丢账号状态/冷却/切换历史 + DB 不可写降级 + pytest 全绿
   # ---- C 监控台 ----
   - id: C
     name: 监控台
