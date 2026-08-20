@@ -148,6 +148,16 @@ stages:
           - apps/backend/src/opencode_pool/api/events.py
           - apps/web/src/features/charts/EventTimeline.tsx
         acceptance: type/data/meta/time 统一事件 + 请求/冷却/切换/全失效事件 + 旧 switch_history 迁移删除 + pytest 105/vitest 21 全绿；生产库迁移与真实转发链路实测通过
+      - id: C5
+        title: 账号额度展示
+        status: in_progress
+        prd: docs/prd/PRD-C5-quota-display.md
+        modules:
+          - apps/backend/src/opencode_pool/quota/
+          - apps/backend/src/opencode_pool/api/quota.py
+          - apps/web/src/features/dashboard/
+          - apps/web/src/services/api.ts
+        acceptance: 每账号滚动/周/月用量（百分比+重置时间）+ 总额度汇总 + TTL 缓存防高频打上游 + pytest/vitest 全绿；真实额度接口实测通过
   # ---- G 收尾 ----
   - id: G
     name: 收尾
