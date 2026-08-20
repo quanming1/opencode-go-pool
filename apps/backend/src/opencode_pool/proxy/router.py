@@ -49,34 +49,15 @@ async def _do_models(request: Request) -> Response:
     )
 
 
-# ---- 路径组 1：/api/v1/*（原路径，监控台与文档用） ----
+# ---- 双路径（/api/v1/* 与 /v1/*）同一 handler 注册 ----
+# 标准 OpenAI SDK / LangChain 调用 /v1/*（无 /api 前缀），监控台/文档用 /api/v1/*；
+# 通过同一函数叠两个 APIRouter 的 route 装饰器，消除 alias handler 重复（G6 FR1）。
 
 router = APIRouter(
     prefix="/api/v1",
     tags=["proxy"],
     dependencies=[Depends(require_gateway_key)],
 )
-
-
-@router.post("/responses")
-async def responses(request: Request) -> Response:
-    """OpenAI Responses 透明转发（流式/非流式）。"""
-    return await _do_forward(request, "/responses")
-
-
-@router.post("/chat/completions")
-async def chat_completions(request: Request) -> Response:
-    """OpenAI Chat Completions 透明转发（流式/非流式）。"""
-    return await _do_forward(request, "/chat/completions")
-
-
-@router.get("/models")
-async def models(request: Request) -> Response:
-    """返回账号池合并模型清单。"""
-    return await _do_models(request)
-
-
-# ---- 路径组 2：/v1/*（标准 OpenAI SDK / LangChain 兼容路径） ----
 
 alias_router = APIRouter(
     prefix="/v1",
@@ -85,19 +66,22 @@ alias_router = APIRouter(
 )
 
 
+@router.post("/responses")
 @alias_router.post("/responses")
-async def responses_alias(request: Request) -> Response:
-    """OpenAI Responses 透明转发（标准路径别名）。"""
+async def responses(request: Request) -> Response:
+    """OpenAI Responses 透明转发（流式/非流式）。"""
     return await _do_forward(request, "/responses")
 
 
+@router.post("/chat/completions")
 @alias_router.post("/chat/completions")
-async def chat_completions_alias(request: Request) -> Response:
-    """OpenAI Chat Completions 透明转发（标准路径别名）。"""
+async def chat_completions(request: Request) -> Response:
+    """OpenAI Chat Completions 透明转发（流式/非流式）。"""
     return await _do_forward(request, "/chat/completions")
 
 
+@router.get("/models")
 @alias_router.get("/models")
-async def models_alias(request: Request) -> Response:
-    """模型清单（标准路径别名）。"""
+async def models(request: Request) -> Response:
+    """返回账号池合并模型清单。"""
     return await _do_models(request)

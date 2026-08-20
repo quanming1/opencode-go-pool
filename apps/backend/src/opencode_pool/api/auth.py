@@ -29,7 +29,11 @@ async def require_gateway_key(
     request: Request,
     manager: KeyManager = Depends(get_key_manager),
 ) -> KeyManager:
-    """转发端点：GATEWAY_AUTH=on 时校验 Bearer，否则放行（本地模式）。"""
+    """端点鉴权：GATEWAY_AUTH=on 时校验 Bearer，否则放行（本地模式）。
+
+    keys/账号控制等管理端点在 C3 早期有独立 strict 分支，用户决策本地免鉴权后
+    退化为与转发端点同一逻辑（G6 FR3 已合并，不再保留空壳函数）。
+    """
     if not manager.auth_required:
         return manager
     if not manager.verify(_extract_token(request)):
@@ -38,11 +42,3 @@ async def require_gateway_key(
             detail=json.dumps({"error": {"message": "invalid or missing gateway key"}}),
         )
     return manager
-
-
-async def require_gateway_key_strict(
-    request: Request,
-    manager: KeyManager = Depends(get_key_manager),
-) -> KeyManager:
-    """keys/账号控制端点：与转发端点同一开关，不再有"严格模式"分支。"""
-    return await require_gateway_key(request, manager)
