@@ -8,9 +8,10 @@
         api_key: ${OPENCODE_GO_KEY_1}   # 必填，引用环境变量
         models: []                        # 可选，空 = 全部
         enabled: true                     # 可选，默认 true
+        base_url: https://xxx/v1          # 可选，覆盖全局上游地址
 
-环境变量引用语法：`${VAR_NAME}`。引用缺失时跳过该账号并记录警告，
-不使整个服务崩溃（FR4 安全要求：清晰错误 + 容错）。
+环境变量解析顺序：进程环境变量 > apps/backend/.env 文件（KEY=VALUE）。
+引用缺失时跳过该账号并记录警告，不使整个服务崩溃。
 """
 
 import json
@@ -27,18 +28,23 @@ _ENV_REF_RE = re.compile(r"^\$\{([A-Z0-9_]+)\}$")
 
 
 def load_accounts(
-    path: str | Path | None, env: dict[str, str] | None = None
+    path: str | Path | None,
+    env: dict[str, str] | None = None,
+    env_file: str | Path | None = ".env",
 ) -> list[Account]:
     """从配置文件加载账号池。
 
     Args:
         path: 配置文件路径（YAML 或 JSON）。None 或不存在 → 返回空列表。
-        env: 环境变量字典（默认 os.environ）。便于测试注入。
+        env: 环境变量字典。显式传入时只用它（测试注入，不读 .env）；
+            None 时合并 .env 文件 + os.environ（进程环境变量优先）。
+        env_file: .env 文件路径（相对运行目录）。None = 不读 .env。
 
     Returns:
         已解析且密钥（env 引用）完整的账号列表。
     """
-    env = env if env is not None else os.environ
+    if env is None:
+        env = _merged_env(env_file)
     if path is None:
         return []
     p = Path(path)
@@ -54,6 +60,33 @@ def load_accounts(
         if account is not None:
             accounts.append(account)
     return accounts
+
+
+def _merged_env(env_file: str | Path | None) -> dict[str, str]:
+    """进程环境变量 + .env 文件合并（os.environ 优先，.env 是默认值）。"""
+    merged: dict[str, str] = {}
+    if env_file is not None:
+        merged.update(_parse_env_file(env_file))
+    merged.update(os.environ)
+    return merged
+
+
+def _parse_env_file(env_file: str | Path) -> dict[str, str]:
+    """解析 .env 文件（每行 KEY=VALUE；忽略空行与 # 注释；去除包裹引号）。"""
+    result: dict[str, str] = {}
+    p = Path(env_file)
+    if not p.is_file():
+        return result
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("'").strip('"')
+        if key:
+            result[key] = value
+    return result
 
 
 def _read_config(p: Path) -> dict:

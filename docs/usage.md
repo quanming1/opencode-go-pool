@@ -27,17 +27,24 @@ accounts:
     # base_url: https://xxx/v1          # 覆盖全局上游地址
 ```
 
-### 1.2 设置环境变量（密钥）
+### 1.2 设置密钥
+
+推荐写入 `apps/backend/.env`（不入库，见 `.env.example`）：
+
+```bash
+# apps/backend/.env
+OPENCODE_GO_KEY_1=sk-xxxxxxxx
+OPENCODE_GO_KEY_2=sk-xxxxxxxx
+```
+
+或临时用进程环境变量（优先级高于 .env）：
 
 ```bash
 # Windows（当前会话）
 set OPENCODE_GO_KEY_1=sk-xxxxxxxx
-set OPENCODE_GO_KEY_2=sk-xxxxxxxx
-
-# 或写入 apps/backend/.env（不入库，见 .env.example）
 ```
 
-> 说明：`${VAR}` 引用的环境变量缺失时该账号被跳过（日志有警告），不影响其他账号。密钥只存在内存与本地环境，绝不写入日志或 API 响应。
+> 说明：`${VAR}` 引用解析顺序 = 进程环境变量 > `apps/backend/.env` 文件。引用缺失时该账号被跳过（日志有警告），不影响其他账号。密钥只存在内存与本地文件，绝不写入日志或 API 响应。
 
 ## 2. 启动
 
