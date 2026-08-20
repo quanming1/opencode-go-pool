@@ -198,10 +198,10 @@ stages:
         acceptance: 建立 1280/1024/768/576 断点体系；窄屏（≤576）侧栏折叠为顶部 tab、各网格单列、表格横向可滚动；playwright 实测 360/480/768/1024/1440 各视口无横向溢出、关键区块文字不被挤压；vitest/eslint/build 全绿
       - id: E2
         title: 中英文切换 + 主题切换（light/dark）
-        status: in_progress
+        status: done
         date: 2026-08-20
         prd: docs/prd/PRD-E2-i18n-theme.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/web/src/i18n/
           - apps/web/src/index.css
