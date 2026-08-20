@@ -23,6 +23,10 @@ def _app(tmp_path):
     app = FastAPI()
     app.state.account_pool = pool
     app.state.usage_recorder = rec
+    # C3：空 KeyManager（鉴权未启用 → 转发放行）
+    from opencode_pool.auth.gateway_key import KeyManager
+
+    app.state.key_manager = KeyManager(store)
 
     transport = httpx.MockTransport(
         lambda req: httpx.Response(
@@ -96,6 +100,9 @@ def test_error_request_records_error_type(tmp_path):
     app = FastAPI()
     app.state.account_pool = pool
     app.state.usage_recorder = rec
+    from opencode_pool.auth.gateway_key import KeyManager
+
+    app.state.key_manager = KeyManager(store)
 
     transport = httpx.MockTransport(
         lambda req: httpx.Response(400, json={"error": {"message": "bad model"}})

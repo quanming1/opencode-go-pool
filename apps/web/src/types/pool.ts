@@ -59,3 +59,17 @@ export interface SwitchEvent {
 export interface SwitchHistoryResponse {
   events: SwitchEvent[];
 }
+
+export interface GatewayKey {
+  id: number;
+  label: string;
+  created_at: string;
+  revoked_at: string | null;
+}
+
+export interface CreatedGatewayKey {
+  id: number;
+  label: string;
+  key: string;
+  created_at: string;
+}

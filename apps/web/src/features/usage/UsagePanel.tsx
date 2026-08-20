@@ -1,15 +1,19 @@
-import { useAccountPolling } from "./useAccountPolling";
-import { SummaryCards } from "./SummaryCards";
-import { AccountCard } from "./AccountCard";
+import { useAccountPolling } from "../dashboard/useAccountPolling";
+import { SummaryCards } from "../dashboard/SummaryCards";
+import { AccountCard } from "../dashboard/AccountCard";
 import { UsageCharts } from "../charts/UsageCharts";
 import { SwitchTimeline } from "../charts/SwitchTimeline";
+import { AccountControls } from "./AccountControls";
+import { useCallback } from "react";
 
 /**
- * 账号状态大盘（C1 + C2 容器）：
- * 轮询 accounts / stats / switch-history → 统计摘要 + 账号卡片 + 用量趋势图 + 轮换时间线。
+ * Tab1：用量信息（C3 FR8）。
+ * 汇总卡 + 账号卡（含控制按钮）+ 用量趋势图 + 轮换时间线。
+ * 控制操作后 forceTick 立即拉取最新数据（不等下一轮询）。
  */
-export function Dashboard() {
-  const { accounts, stats, switchEvents, error, loading } = useAccountPolling();
+export function UsagePanel() {
+  const { accounts, stats, switchEvents, error, loading, refresh } = useAccountPolling();
+  const onControlChanged = useCallback(() => void refresh(), [refresh]);
 
   return (
     <div className="dashboard">
@@ -27,7 +31,11 @@ export function Dashboard() {
         ) : accounts.length === 0 ? (
           <p className="dashboard-empty">暂无账号。请配置 config/accounts.yaml 后重启后端。</p>
         ) : (
-          accounts.map((a) => <AccountCard key={a.id} account={a} />)
+          accounts.map((a) => (
+            <AccountCard key={a.id} account={a}>
+              <AccountControls account={a} onChanged={onControlChanged} />
+            </AccountCard>
+          ))
         )}
       </div>
 

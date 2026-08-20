@@ -46,6 +46,13 @@ CREATE TABLE IF NOT EXISTS usage_events (
     request_count INTEGER NOT NULL DEFAULT 1,
     model TEXT
 );
+CREATE TABLE IF NOT EXISTS gateway_keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key_hash TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    revoked_at TEXT
+);
 """
 
 _UPSERT_ACCOUNT = """
@@ -286,6 +293,94 @@ class AccountStore:
         except sqlite3.Error as exc:
             logger.warning("[store] 聚合用量失败: %s", exc)
             return empty
+
+    # ---- C3：网关 key 管理 ----
+
+    def save_gateway_key(self, key_hash: str, label: str, created_at: str) -> int | None:
+        """插入网关 key 哈希，返回自增 id；失败返回 None。"""
+        if not self._available or self._conn is None:
+            return None
+        try:
+            cur = self._conn.execute(
+                "INSERT INTO gateway_keys (key_hash, label, created_at, revoked_at) "
+                "VALUES (?, ?, ?, NULL)",
+                (key_hash, label, created_at),
+            )
+            self._conn.commit()
+            return int(cur.lastrowid) if cur.lastrowid else None
+        except sqlite3.Error as exc:
+            logger.warning("[store] 保存网关 key 失败: %s", exc)
+            return None
+
+    def list_gateway_keys(self) -> list[dict]:
+        """网关 key 列表（不含哈希，只含元信息）。"""
+        if not self._available or self._conn is None:
+            return []
+        try:
+            rows = self._conn.execute(
+                "SELECT id, label, created_at, revoked_at FROM gateway_keys "
+                "ORDER BY id DESC"
+            ).fetchall()
+            return [
+                {
+                    "id": r[0],
+                    "label": r[1],
+                    "created_at": r[2],
+                    "revoked_at": r[3],
+                }
+                for r in rows
+            ]
+        except sqlite3.Error as exc:
+            logger.warning("[store] 读网关 key 列表失败: %s", exc)
+            return []
+
+    def revoke_gateway_key(self, key_id: int) -> bool:
+        """吊销 key（软删，revoked_at 置当前 UTC 时间）。"""
+        if not self._available or self._conn is None:
+            return False
+        try:
+            import datetime as _dt
+
+            now = _dt.datetime.now(_dt.UTC).isoformat()
+            cur = self._conn.execute(
+                "UPDATE gateway_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL",
+                (now, key_id),
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
+        except sqlite3.Error as exc:
+            logger.warning("[store] 吊销网关 key 失败: %s", exc)
+            return False
+
+    def verify_gateway_key_hash(self, key_hash: str) -> bool:
+        """校验 key 哈希是否存在于库且未吊销。"""
+        if not self._available or self._conn is None:
+            return False
+        try:
+            row = self._conn.execute(
+                "SELECT 1 FROM gateway_keys WHERE key_hash = ? AND revoked_at IS NULL",
+                (key_hash,),
+            ).fetchone()
+            return row is not None
+        except sqlite3.Error as exc:
+            logger.warning("[store] 校验网关 key 失败: %s", exc)
+            return False
+
+    def has_any_gateway_key(self) -> bool:
+        """是否存在网关 key 记录（含已吊销）——决定鉴权是否启用。
+
+        注意：吊销唯一 key 不等于关闭鉴权（否则吊销 = 解锁裸奔）。
+        想彻底关闭鉴权需清空 gateway_keys 表。
+        """
+        if not self._available or self._conn is None:
+            return False
+        try:
+            row = self._conn.execute(
+                "SELECT 1 FROM gateway_keys LIMIT 1"
+            ).fetchone()
+            return row is not None
+        except sqlite3.Error:
+            return False
 
     def close(self) -> None:
         if self._conn is not None:
