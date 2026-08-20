@@ -10,6 +10,7 @@ from opencode_pool import __version__
 from opencode_pool.accounts.loader import load_accounts
 from opencode_pool.accounts.pool import AccountPool
 from opencode_pool.api.accounts import router as accounts_router
+from opencode_pool.api.usage import router as usage_router
 from opencode_pool.config import settings
 from opencode_pool.proxy import router as proxy_router
 from opencode_pool.proxy.forwarder import Forwarder
@@ -26,7 +27,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
         config_path: 账号配置文件路径；None 时用默认 config/accounts.yaml，
             文件不存在则空账号池（可启动，见 B1 PRD AC6）。
     """
-    pool = _build_pool(config_path)
+    pool, store = _build_pool(config_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -50,15 +51,23 @@ def create_app(config_path: str | None = None) -> FastAPI:
     app = FastAPI(title="OpenCode Go Pool", version=__version__, lifespan=lifespan)
     app.state.account_pool = pool
 
-    # 代理转发器（B2：多账号外层 + 透明转发）
+    # C2：用量记录器（与账号池共用同一 SQLite store）
+    from opencode_pool.usage.recorder import UsageRecorder
+
+    recorder = UsageRecorder(store)
+    app.state.usage_recorder = recorder
+
+    # 代理转发器（B2：多账号外层 + 透明转发；C2：记录用量）
     app.state.forwarder = Forwarder(
         pool=pool,
         upstream_base_url=settings.upstream_base_url,
         timeout=settings.upstream_timeout,
+        usage_recorder=recorder,
     )
 
     app.include_router(accounts_router)
     app.include_router(proxy_router)
+    app.include_router(usage_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -68,11 +77,14 @@ def create_app(config_path: str | None = None) -> FastAPI:
     return app
 
 
-def _build_pool(config_path: str | None) -> AccountPool:
-    """构建账号池：加载配置 + 注入 B3 参数 + B4 持久化 + 从 DB 恢复状态。
+def _build_pool(config_path: str | None) -> tuple[AccountPool, AccountStore]:
+    """构建账号池与共用 store：加载配置 + B3 参数 + B4 持久化 + 从 DB 恢复。
 
     Args:
         config_path: 账号配置文件路径；None 用默认。
+
+    Returns:
+        (pool, store) —— store 供 UsageRecorder 共用（C2）。
     """
     if config_path is None:
         config_path = "config/accounts.yaml"
@@ -95,7 +107,7 @@ def _build_pool(config_path: str | None) -> AccountPool:
     else:
         logger.warning("[app] SQLite 持久化不可用，本次运行状态不会跨重启保留")
 
-    return pool
+    return pool, store
 
 
 app = create_app()

@@ -14,3 +14,4 @@
 - B3 轮换强化：冷却主动扫描自动恢复、Retry-After 动态冷却、连续失败阈值自动禁用、切换历史环形日志（pytest 50 passed）
 - B4 SQLite 状态持久化：account 运行时状态与切换历史落库、重启自动恢复（冷却/禁用/计数）、DB 不可写降级纯内存（pytest 61 passed）
 - C1 前端账号状态大盘：账号卡片 + 状态徽章（健康/冷却/禁用）+ 统计摘要 + 10s 轮询；白色简洁风；删除 demo 占位（vitest 10 passed）
+- C2 用量与轮换：后端 /api/stats（按小时桶/账号聚合）+ /api/switch-history（Thread 中文映射）+ 前端 ECharts 用量趋势图与轮换时间线（pytest 70 + vitest 13 passed）

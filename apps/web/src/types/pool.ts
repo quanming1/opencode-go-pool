@@ -17,3 +17,45 @@ export interface PoolAccount {
 export interface AccountsResponse {
   accounts: PoolAccount[];
 }
+
+export interface UsageTotals {
+  request_count: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  error_count: number;
+}
+
+export interface UsageBucket {
+  ts: string;
+  request_count: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  error_count: number;
+}
+
+export interface PerAccountUsage {
+  account_id: string;
+  request_count: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  error_count: number;
+}
+
+export interface StatsResponse {
+  hours: number;
+  totals: UsageTotals;
+  per_account: PerAccountUsage[];
+  buckets: UsageBucket[];
+}
+
+export interface SwitchEvent {
+  ts: string;
+  account_id: string;
+  kind: string;
+  reason: string | null;
+  kind_label: string;
+}
+
+export interface SwitchHistoryResponse {
+  events: SwitchEvent[];
+}

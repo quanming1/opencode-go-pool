@@ -1,26 +1,28 @@
 import { useEffect, useState } from "react";
-import { fetchAccounts } from "../../services/api";
-import type { PoolAccount } from "../../types/pool";
+import {
+  fetchAccounts,
+  fetchStats,
+  fetchSwitchHistory,
+} from "../../services/api";
+import type { PoolAccount, StatsResponse, SwitchEvent } from "../../types/pool";
 
 export interface AccountsState {
   accounts: PoolAccount[];
+  stats: StatsResponse | null;
+  switchEvents: SwitchEvent[];
   error: string | null;
   loading: boolean;
 }
 
 /**
- * 轮询 /api/accounts。
+ * 轮询大盘数据：/api/accounts + /api/stats + /api/switch-history（C1 FR5 + C2 FR7）。
  *
- * 设计（PRD-C1 FR5/AC4）：
- * - 每 intervalMs 拉一次，用链式 setTimeout 避免重叠请求；
- * - 后端失败时保留上次数据并置 error（不清空 UI）；
- * - cleanup 标志 on=false + 清 timer 防竞态/泄漏。
+ * 设计：链式 setTimeout 避免重叠；后端失败保留上次数据并置 error；cleanup 防竞态。
  */
-export function useAccountPolling(
-  intervalMs = 10_000,
-  fetchFn: () => Promise<PoolAccount[]> = fetchAccounts,
-): AccountsState {
+export function useAccountPolling(intervalMs = 10_000) {
   const [accounts, setAccounts] = useState<PoolAccount[]>([]);
+  const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [switchEvents, setSwitchEvents] = useState<SwitchEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -30,9 +32,15 @@ export function useAccountPolling(
 
     async function tick() {
       try {
-        const data = await fetchFn();
+        const [accs, s, ev] = await Promise.all([
+          fetchAccounts(),
+          fetchStats(24),
+          fetchSwitchHistory(50),
+        ]);
         if (!on) return;
-        setAccounts(data);
+        setAccounts(accs);
+        setStats(s);
+        setSwitchEvents(ev);
         setError(null);
         setLoading(false);
       } catch (e) {
@@ -49,7 +57,7 @@ export function useAccountPolling(
       on = false;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [intervalMs, fetchFn]);
+  }, [intervalMs]);
 
-  return { accounts, error, loading };
+  return { accounts, stats, switchEvents, error, loading };
 }
