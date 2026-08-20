@@ -30,15 +30,17 @@ _ENV_REF_RE = re.compile(r"^\$\{([A-Z0-9_]+)\}$")
 def load_accounts(
     path: str | Path | None,
     env: dict[str, str] | None = None,
-    env_file: str | Path | None = ".env",
+    env_file: str | Path | None = ".env.keys",
 ) -> list[Account]:
     """从配置文件加载账号池。
 
     Args:
         path: 配置文件路径（YAML 或 JSON）。None 或不存在 → 返回空列表。
-        env: 环境变量字典。显式传入时只用它（测试注入，不读 .env）；
-            None 时合并 .env 文件 + os.environ（进程环境变量优先）。
-        env_file: .env 文件路径（相对运行目录）。None = 不读 .env。
+        env: 环境变量字典。显式传入时只用它（测试注入，不读 env_file）；
+            None 时合并 env_file + os.environ（进程环境变量优先）。
+        env_file: 密钥文件路径（KEY=VALUE，相对运行目录）。
+            默认 `.env.keys`——与 Settings 的 `.env`（应用配置，严格模式）
+            分离，避免密钥字段被 pydantic extra=forbid 拒绝。None = 不读。
 
     Returns:
         已解析且密钥（env 引用）完整的账号列表。
