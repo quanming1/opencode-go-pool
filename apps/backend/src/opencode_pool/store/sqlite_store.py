@@ -609,22 +609,6 @@ class AccountStore:
             logger.warning("[store] 校验网关 key 失败: %s", exc)
             return False
 
-    def has_any_gateway_key(self) -> bool:
-        """是否存在网关 key 记录（含已吊销）——决定鉴权是否启用。
-
-        注意：吊销唯一 key 不等于关闭鉴权（否则吊销 = 解锁裸奔）。
-        想彻底关闭鉴权需清空 gateway_keys 表。
-        """
-        if not self._available or self._conn is None:
-            return False
-        try:
-            row = self._conn.execute(
-                "SELECT 1 FROM gateway_keys LIMIT 1"
-            ).fetchone()
-            return row is not None
-        except sqlite3.Error:
-            return False
-
     def close(self) -> None:
         if self._conn is not None:
             try:
