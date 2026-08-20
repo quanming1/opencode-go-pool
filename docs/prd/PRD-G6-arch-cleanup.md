@@ -8,10 +8,10 @@
 |---|---|
 | 阶段 | G6 |
 | 名称 | 优化架构 · 后端 API 层结构性冗余收敛 |
-| 状态 | approved |
+| 状态 | 已验收 |
 | 创建日期 | 2026-08-21 |
 | 定稿日期 | 2026-08-21 |
-| 验收日期 | — |
+| 验收日期 | 2026-08-21 |
 | 关联文档 | docs/TODO.yaml 阶段 G6；apps/backend/src/opencode_pool/proxy/router.py；apps/backend/src/opencode_pool/api/ |
 
 ## 1. 背景与目标
@@ -102,3 +102,4 @@ async def responses(request: Request) -> Response:
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
 | 2026-08-21 | 实现完成：① proxy/router.py 的 `responses`/`chat_completions`/`models` 与 alias 合并为同一函数叠 `@router.*`/`@alias_router.*` 双路由装饰器，删除 3 个 alias handler；② 新建 api/_common.py（json_response + get_state_service），keys/usage/events 删除各自 `_json_response`/`_get_recorder` 改走 `_common`；③ 删除 `require_gateway_key_strict` 空壳，accounts.py（3 处依赖）/keys.py（import+3 处）改用 `require_gateway_key`。openapi 6 条路径全保留；grep 六项模式 0 命中；pytest 138 + ruff 0；独立实例双路径回归（models 内容一致、四条转发路径可达）；前端 vitest 60 + eslint 0 + build 全绿（零前端改动） | 阶段 G6 开发 |
+| 2026-08-21 | 验收通过：grep 六项模式（strict/alias 函数/_json_response/_get_recorder）全库 0 命中；openapi 断言 6 条路径（/api/v1/{responses,chat/completions,models} + /v1/*）全部 present；pytest 138 + ruff 0（test_proxy 双路径 + test_gateway_keys/test_accounts_api 鉴权用例覆盖无回归）；独立实例端到端 /models 主别名内容一致、四条转发路径可达（503 空池语义）；前端零改动 vitest 60 + eslint 0 + build 全绿；CI 三 job 全绿（PR #106 合并） | 阶段 G6 完成 |
