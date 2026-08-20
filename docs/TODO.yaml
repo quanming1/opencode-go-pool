@@ -185,10 +185,10 @@ stages:
     steps:
       - id: E1
         title: 响应式开发（多分辨率/窗口尺寸下不挤压、不溢出）
-        status: in_progress
+        status: done
         date: 2026-08-20
         prd: docs/prd/PRD-E1-responsive.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/web/src/layout.css
           - apps/web/src/index.css
