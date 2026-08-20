@@ -7,16 +7,16 @@ import { AccountLoadChart } from "../charts/AccountLoadChart";
 import { EventTimeline } from "../charts/EventTimeline";
 import { AccountControls } from "./AccountControls";
 import { LogsOverviewCard } from "./LogsOverviewCard";
+import { useI18n } from "../../i18n";
 import { useCallback } from "react";
 
 /**
- * Tab1：用量信息（C3 FR8；C5 额度；D1 日志升级）。
+ * Tab1：用量信息（C3 FR8；C5 额度；D1 日志升级；E2 i18n）。
  * 汇总卡（含额度总览）+ 运行概览（活跃 Key/速率/剩余时长）+ 账号卡（额度区块 + 控制按钮）
  * + 用量趋势图 + 模型分布/账号负载图 + 统一事件时间线（分页）。
- * 控制操作后 forceTick 立即拉取最新数据（不等下一轮询）；
- * 「刷新额度」强制绕过服务端缓存重新查询上游。
  */
 export function UsagePanel() {
+  const { t } = useI18n();
   const {
     accounts,
     stats,
@@ -46,7 +46,7 @@ export function UsagePanel() {
 
       {error && (
         <p className="dashboard-error" role="alert">
-          无法刷新大盘数据: {error}（显示上次数据）
+          {t("common.refreshFailed")}: {error}{t("common.showLastData")}
         </p>
       )}
 
@@ -54,9 +54,9 @@ export function UsagePanel() {
 
       <div className="account-list">
         {loading && accounts.length === 0 ? (
-          <p className="dashboard-empty">加载中…</p>
+          <p className="dashboard-empty">{t("common.loading")}</p>
         ) : accounts.length === 0 ? (
-          <p className="dashboard-empty">暂无账号。请配置 config/accounts.yaml 后重启后端。</p>
+          <p className="dashboard-empty">{t("common.noAccounts")}</p>
         ) : (
           accounts.map((a) => (
             <AccountCard key={a.id} account={a} quota={quotaByAccount.get(a.id)}>
@@ -68,7 +68,7 @@ export function UsagePanel() {
 
       <section className="card">
         <div className="card-head-row">
-          <h2 className="card-title">额度（OpenCode Go 官方接口）</h2>
+          <h2 className="card-title">{t("quota.sectionTitle")}</h2>
           <button
             className="btn"
             type="button"
@@ -76,51 +76,51 @@ export function UsagePanel() {
             disabled={quotaBusy}
             data-testid="quota-refresh"
           >
-            {quotaBusy ? "刷新中…" : "刷新额度"}
+            {quotaBusy ? t("quota.refreshing") : t("quota.refresh")}
           </button>
         </div>
         {quotaError && (
           <p className="dashboard-error" role="alert">
-            刷新额度失败: {quotaError}（显示上次数据）
+            {t("quota.fetchFailed")}: {quotaError}{t("common.showLastData")}
           </p>
         )}
         <p className="quota-note">
-          滚动窗口 5 小时 $12 / 每周 $30 / 每月 $60（每账号）。
+          {t("quota.limitsHelp")}
           {quota?.fetched_at
-            ? ` 取数时间 ${new Date(quota.fetched_at).toLocaleString("zh-CN", { hour12: false })}${quota.cached ? "（缓存）" : ""}`
+            ? ` ${t("quota.fetchedAt", { ts: new Date(quota.fetched_at).toLocaleString(undefined, { hour12: false }) })}${quota.cached ? t("quota.cached") : ""}`
             : ""}
         </p>
       </section>
 
       <section className="card">
-        <h2 className="card-title">用量趋势（近24h）</h2>
+        <h2 className="card-title">{t("chart.title.usage")}</h2>
         {stats && stats.buckets.length > 0 ? (
           <UsageCharts stats={stats} />
         ) : (
-          <p className="dashboard-empty">暂无用量数据</p>
+          <p className="dashboard-empty">{t("chart.empty.usage")}</p>
         )}
       </section>
 
       <section className="card">
-        <h2 className="card-title">模型请求分布</h2>
+        <h2 className="card-title">{t("chart.title.models")}</h2>
         {stats && stats.per_account_models.length > 0 ? (
           <ModelUsageChart stats={stats} />
         ) : (
-          <p className="dashboard-empty">暂无请求数据</p>
+          <p className="dashboard-empty">{t("chart.empty.models")}</p>
         )}
       </section>
 
       <section className="card">
-        <h2 className="card-title">账号负载</h2>
+        <h2 className="card-title">{t("chart.title.accounts")}</h2>
         {stats && stats.per_account.length > 0 ? (
           <AccountLoadChart stats={stats} />
         ) : (
-          <p className="dashboard-empty">暂无账号请求数据</p>
+          <p className="dashboard-empty">{t("chart.empty.accounts")}</p>
         )}
       </section>
 
       <section className="card">
-        <h2 className="card-title">事件时间线</h2>
+        <h2 className="card-title">{t("events.title")}</h2>
         <EventTimeline />
       </section>
     </div>

@@ -30,7 +30,7 @@
 .sidebar-tab--active {
   color: var(--color-accent);
   border-right: 2px solid var(--color-accent);
-  background: #f9fafb;
+  background: var(--color-bg-subtle);
   font-weight: 600;
 }
 
@@ -146,7 +146,7 @@
   padding: 6px 8px;
   font-size: 12px;
   word-break: break-all;
-  background: #f9fafb;
+  background: var(--color-bg-subtle);
 }
 
 .keys-table th,
@@ -159,7 +159,7 @@
 .keys-table th {
   color: var(--color-text-secondary);
   font-weight: 600;
-  background: #f9fafb;
+  background: var(--color-bg-subtle);
 }
 
 .keys-confirm {

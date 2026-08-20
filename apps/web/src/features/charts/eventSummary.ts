@@ -1,22 +1,33 @@
-/** 统一事件摘要（C4）：类型标签映射 + 按 data 渲染摘要文本。 */
+/** 统一事件摘要（C4；E2 i18n）：类型标签映射 + 按 data 渲染摘要文本。
 
-/** 事件类型 → 中文标签。 */
-export const EVENT_LABELS: Record<string, string> = {
-  request: "请求",
-  key_cooldown_started: "进入冷却",
-  key_cooldown_completed: "冷却完成",
-  key_switch: "切换",
-  all_keys_invalid: "全部额度/鉴权失效",
-  all_keys_unavailable: "全部不可用",
-  key_disabled: "禁用",
-  key_enabled: "启用",
-  key_cooldown_cleared: "清除冷却",
-  gateway_key_created: "网关Key创建",
-  gateway_key_revoked: "网关Key吊销",
+ * buildSummary / labelOf 接收翻译函数 t（由调用方从 useI18n() 传入），
+ * 保持纯函数可测：测试传返回中文的 stub t 即可。
+ */
+import type { MessageKey } from "../../i18n";
+
+export type TranslateFn = (
+  key: MessageKey,
+  vars?: Record<string, string | number>,
+) => string;
+
+/** 事件类型 → 翻译键。 */
+const EVENT_LABEL_KEYS: Record<string, MessageKey> = {
+  request: "event.label.request",
+  key_cooldown_started: "event.label.key_cooldown_started",
+  key_cooldown_completed: "event.label.key_cooldown_completed",
+  key_switch: "event.label.key_switch",
+  all_keys_invalid: "event.label.all_keys_invalid",
+  all_keys_unavailable: "event.label.all_keys_unavailable",
+  key_disabled: "event.label.key_disabled",
+  key_enabled: "event.label.key_enabled",
+  key_cooldown_cleared: "event.label.key_cooldown_cleared",
+  gateway_key_created: "event.label.gateway_key_created",
+  gateway_key_revoked: "event.label.gateway_key_revoked",
 };
 
-export function labelOf(type: string): string {
-  return EVENT_LABELS[type] ?? type;
+export function labelOf(type: string, t: TranslateFn): string {
+  const key = EVENT_LABEL_KEYS[type];
+  return key ? t(key) : type;
 }
 
 function str(data: Record<string, unknown>, key: string, fallback = ""): string {
@@ -31,17 +42,21 @@ function accountList(data: Record<string, unknown>): string {
   return single || "-";
 }
 
-/** 按事件类型渲染摘要文本（data 业务内容）。 */
-export function buildSummary(type: string, data: Record<string, unknown>): string {
+/** 按事件类型渲染摘要文本（data 业务内容）；正文段由 t 本地化。 */
+export function buildSummary(
+  type: string,
+  data: Record<string, unknown>,
+  t: TranslateFn,
+): string {
   switch (type) {
     case "request": {
       const success = data["success"] === true;
-      const tag = success ? "成功" : "失败";
+      const tag = success ? t("event.success") : t("event.failed");
       const model = str(data, "model", "-");
       const protocol = str(data, "protocol", "-");
       const status = str(data, "status_code", "-");
       const dur = `${str(data, "duration_ms", "0")}ms`;
-      const attempts = `尝试 ${str(data, "attempt_count", "0")} 次`;
+      const attempts = t("event.attempts", { n: str(data, "attempt_count", "0") });
       const token = (data["token"] as { prompt?: number; completion?: number }) ?? {};
       const tok = `tok ${Number(token.prompt ?? 0)}/${Number(token.completion ?? 0)}`;
       return `${tag} ${protocol} ${model} HTTP ${status} ${dur} ${attempts} ${tok}`;
@@ -49,25 +64,32 @@ export function buildSummary(type: string, data: Record<string, unknown>): strin
     case "key_switch": {
       const errorType = str(data, "error_type");
       const reason = str(data, "reason");
-      return `${str(data, "from_account_id", "-")} → ${str(data, "to_account_id", "-")}${errorType ? `（${errorType}）` : ""}${reason ? `：${reason}` : ""}`;
+      const err = errorType ? t("event.autoJoin", { x: errorType }) : "";
+      const r = reason ? t("event.reasonJoin", { r: reason }) : "";
+      return `${str(data, "from_account_id", "-")} → ${str(data, "to_account_id", "-")}${err}${r}`;
     }
     case "key_cooldown_started": {
       const errorType = str(data, "error_type");
       const reason = str(data, "reason");
-      return `${str(data, "account_id", "-")}${errorType ? `（${errorType}）` : ""}${reason ? `：${reason}` : ""}`;
+      const err = errorType ? t("event.autoJoin", { x: errorType }) : "";
+      const r = reason ? t("event.reasonJoin", { r: reason }) : "";
+      return `${str(data, "account_id", "-")}${err}${r}`;
     }
-    case "key_cooldown_completed":
-      return `${str(data, "account_id", "-")}${str(data, "previous_status") ? `（原 ${str(data, "previous_status")}）` : ""}：${str(data, "reason", "已恢复")}`;
+    case "key_cooldown_completed": {
+      const st = str(data, "previous_status");
+      const reason = str(data, "reason");
+      return `${str(data, "account_id", "-")}${st ? t("event.originalJoin", { st }) : ""}${reason ? t("event.reasonJoin", { r: reason }) : t("event.recovered")}`;
+    }
     case "all_keys_invalid":
-      return `${accountList(data)}，错误类型 ${(data["error_types"] as string[] ?? []).join("/") || "-"}，尝试 ${str(data, "attempt_count", "0")} 次`;
+      return `${accountList(data)}${t("event.reasonJoin", { r: t("event.errorTypes", { t: (data["error_types"] as string[] ?? []).join("/") || "-" }) })}${t("event.reasonJoin", { r: t("event.attempts", { n: str(data, "attempt_count", "0") }) })}`;
     case "all_keys_unavailable":
-      return `${accountList(data) || "无健康账号"}，错误类型 ${(data["error_types"] as string[] ?? []).join("/") || "无"}`;
+      return `${accountList(data) || t("event.noHealthy")}${(data["error_types"] as string[] ?? []).length ? t("event.reasonJoin", { r: t("event.errorTypes", { t: (data["error_types"] as string[] ?? []).join("/") }) }) : ""}`;
     case "key_disabled":
-      return `${str(data, "account_id", "-")}${data["automatic"] === true ? "（自动）" : "（手动）"}${str(data, "reason") ? `：${str(data, "reason")}` : ""}`;
+      return `${str(data, "account_id", "-")}${data["automatic"] === true ? t("event.autoJoin", { x: t("event.automatic") }) : t("event.autoJoin", { x: t("event.manual") })}${str(data, "reason") ? t("event.reasonJoin", { r: str(data, "reason") }) : ""}`;
     case "key_enabled":
-      return `${str(data, "account_id", "-")}${str(data, "reason") ? `：${str(data, "reason")}` : ""}`;
+      return `${str(data, "account_id", "-")}${str(data, "reason") ? t("event.reasonJoin", { r: str(data, "reason") }) : ""}`;
     case "key_cooldown_cleared":
-      return `${str(data, "account_id", "-")}${str(data, "previous_status") ? `（原 ${str(data, "previous_status")}）` : ""}：${str(data, "reason", "清除冷却")}`;
+      return `${str(data, "account_id", "-")}${str(data, "previous_status") ? t("event.originalJoin", { st: str(data, "previous_status") }) : ""}${str(data, "reason") ? t("event.reasonJoin", { r: str(data, "reason") }) : t("event.clearCooldown")}`;
     case "gateway_key_created":
       return `#${str(data, "key_id", "-")}（${str(data, "label", "-")}）`;
     case "gateway_key_revoked":

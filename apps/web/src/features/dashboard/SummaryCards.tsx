@@ -1,29 +1,35 @@
 import type { PoolAccount, QuotaSummary } from "../../types/pool";
 import { quotaTone } from "./quotaFormat";
-
-const QUOTA_ROWS = [
+import { useI18n, type MessageKey } from "../../i18n";
+const QUOTA_ROWS: {
+  key: "rolling" | "weekly" | "monthly";
+  labelKey: MessageKey;
+  averageKey: "rolling_avg_percent" | "weekly_avg_percent" | "monthly_avg_percent";
+  averageLabelKey: MessageKey;
+  testId: string;
+}[] = [
   {
     key: "rolling",
-    label: "滚动额度",
+    labelKey: "quota.rolling",
     averageKey: "rolling_avg_percent",
-    averageLabel: "滚动均值",
+    averageLabelKey: "quota.avg.rolling",
     testId: "summary-quota-bar-rolling",
   },
   {
     key: "weekly",
-    label: "每周额度",
+    labelKey: "quota.weekly",
     averageKey: "weekly_avg_percent",
-    averageLabel: "每周均值",
+    averageLabelKey: "quota.avg.weekly",
     testId: "summary-quota-bar-weekly",
   },
   {
     key: "monthly",
-    label: "每月额度",
+    labelKey: "quota.monthly",
     averageKey: "monthly_avg_percent",
-    averageLabel: "每月均值",
+    averageLabelKey: "quota.avg.monthly",
     testId: "summary-quota-bar-monthly",
   },
-] as const;
+];
 
 function quotaUsagePercent(
   summary: QuotaSummary,
@@ -69,37 +75,25 @@ function AccountStatus({
   cooling: number;
   disabled: number;
 }) {
+  const { t } = useI18n();
   return (
     <div className="summary-card__status" data-testid="summary-status">
       <div className="summary-card__status-head">
-        <span className="summary-card__status-title">账号状态</span>
-        <span className="summary-card__status-caption">共 {total} 个账号</span>
+        <span className="summary-card__status-title">{t("summary.title")}</span>
+        <span className="summary-card__status-caption">
+          {t("summary.total", { n: total })}
+        </span>
       </div>
       <div className="summary-status__items">
-        <StatusMetric
-          count={available}
-          label="可用"
-          tone="available"
-          testId="summary-available"
-        />
-        <StatusMetric
-          count={cooling}
-          label="冷却中"
-          tone="cooldown"
-          testId="summary-cooldown"
-        />
-        <StatusMetric
-          count={disabled}
-          label="已禁用"
-          tone="disabled"
-          testId="summary-disabled"
-        />
+        <StatusMetric count={available} label={t("summary.available")} tone="available" testId="summary-available" />
+        <StatusMetric count={cooling} label={t("summary.cooldown")} tone="cooldown" testId="summary-cooldown" />
+        <StatusMetric count={disabled} label={t("summary.disabled")} tone="disabled" testId="summary-disabled" />
       </div>
     </div>
   );
 }
 
-/** 统计摘要卡（PRD-C1 FR4；C5 合并账号状态与总额度进度条）。 */
+/** 统计摘要卡（PRD-C1 FR4；C5 合并账号状态与总额度进度条；E2 i18n）。 */
 export function SummaryCards({
   accounts,
   quotaSummary,
@@ -107,6 +101,7 @@ export function SummaryCards({
   accounts: PoolAccount[];
   quotaSummary?: QuotaSummary;
 }) {
+  const { t } = useI18n();
   const available = accounts.filter(
     (account) => account.status === "healthy" && account.enabled,
   ).length;
@@ -116,12 +111,7 @@ export function SummaryCards({
   ).length;
 
   const accountStatus = (
-    <AccountStatus
-      total={accounts.length}
-      available={available}
-      cooling={cooling}
-      disabled={disabled}
-    />
+    <AccountStatus total={accounts.length} available={available} cooling={cooling} disabled={disabled} />
   );
 
   return (
@@ -134,15 +124,15 @@ export function SummaryCards({
                 {quotaSummary.rolling_available}/{quotaSummary.queried}
               </div>
               <div>
-                <div className="summary-card__label">额度可用</div>
-                <div className="summary-card__quota-caption">滚动窗口可用账号</div>
+                <div className="summary-card__label">{t("quota.available")}</div>
+                <div className="summary-card__quota-caption">{t("quota.caption")}</div>
               </div>
             </div>
 
-            <div className="summary-card__quota-averages" aria-label="各窗口平均已用比例">
+            <div className="summary-card__quota-averages" aria-label="average usage per window">
               {QUOTA_ROWS.map((row) => (
                 <div className="summary-card__quota-average" key={row.key}>
-                  <span>{row.averageLabel}</span>
+                  <span>{t(row.averageLabelKey)}</span>
                   <strong>{quotaSummary[row.averageKey]}%</strong>
                 </div>
               ))}
@@ -161,17 +151,17 @@ export function SummaryCards({
               return (
                 <div className="quota-row quota-row--summary" key={row.key}>
                   <div className="quota-row__head">
-                    <span className="quota-row__label">{row.label}</span>
+                    <span className="quota-row__label">{t(row.labelKey)}</span>
                     <span className="quota-row__amount">
-                      <span>{`估算 $${used}`}</span>
-                      <span>{`总额 $${allocated}`}</span>
+                      <span>{t("quota.est", { v: used })}</span>
+                      <span>{t("quota.total", { v: allocated })}</span>
                     </span>
                   </div>
                   <div
                     className="quota-row__bar quota-row__bar--summary"
                     data-testid={row.testId}
                     role="progressbar"
-                    aria-label={`${row.label}已用比例`}
+                    aria-label={`${t(row.labelKey)} usage`}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={percent}
@@ -182,8 +172,8 @@ export function SummaryCards({
                     />
                   </div>
                   <div className="quota-row__meta">
-                    <span>已用 {percent}%</span>
-                    <span>账号均值 {quotaSummary[row.averageKey]}%</span>
+                    <span>{t("quota.used", { p: percent })}</span>
+                    <span>{`${t(row.averageLabelKey)} ${quotaSummary[row.averageKey]}%`}</span>
                   </div>
                 </div>
               );
