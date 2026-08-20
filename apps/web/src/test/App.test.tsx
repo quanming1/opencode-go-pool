@@ -2,10 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import App from "../App";
 
-// ECharts 依赖 canvas，jsdom 无法渲染——测试中 mock 掉图表组件，
-// 只验证页面结构（图表渲染的正确性由 dev 手动目检，见 PRD-A3 测试计划）。
-vi.mock("../features/demo/DemoChart", () => ({
-  DemoChart: () => <div data-testid="demo-chart" />,
+// Dashboard 依赖轮询 hook → 直接 mock 掉，App 只验证页头结构
+vi.mock("../features/dashboard/useAccountPolling", () => ({
+  useAccountPolling: () => ({ accounts: [], error: null, loading: false }),
 }));
 
 describe("App", () => {
@@ -15,9 +14,8 @@ describe("App", () => {
     expect(screen.getByText("v0.1.0")).toBeDefined();
   });
 
-  it("renders welcome card and demo chart placeholder", () => {
+  it("renders dashboard empty state", () => {
     render(<App />);
-    expect(screen.getByText(/多个 OpenCode Go 订阅账号/)).toBeDefined();
-    expect(screen.getByTestId("demo-chart")).toBeDefined();
+    expect(screen.getByText(/暂无账号/)).toBeDefined();
   });
 });
