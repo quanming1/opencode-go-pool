@@ -196,6 +196,20 @@ stages:
           - apps/web/src/App.tsx
           - apps/web/src/components/Sidebar.tsx
         acceptance: 建立 1280/1024/768/576 断点体系；窄屏（≤576）侧栏折叠为顶部 tab、各网格单列、表格横向可滚动；playwright 实测 360/480/768/1024/1440 各视口无横向溢出、关键区块文字不被挤压；vitest/eslint/build 全绿
+      - id: E2
+        title: 中英文切换 + 主题切换（light/dark）
+        status: in_progress
+        date: 2026-08-20
+        prd: docs/prd/PRD-E2-i18n-theme.md
+        prd_status: 草稿
+        modules:
+          - apps/web/src/i18n/
+          - apps/web/src/index.css
+          - apps/web/src/layout.css
+          - apps/web/src/features/
+          - apps/web/src/components/
+          - apps/web/src/App.tsx
+        acceptance: 自研轻量 i18n（zh/en 字典 + context，不新增依赖）；header 语言切换控件 + localStorage 持久化；CSS 变量双主题（:root 浅色 + [data-theme=dark] 深色）全站随动 + ECharts 动态取色；playwright 断言切 en 后关键文案英文、切 dark 后 html[data-theme] 与背景变量正确；vitest/eslint/build 全绿
   # ---- G 收尾 ----
   - id: G
     name: 收尾
