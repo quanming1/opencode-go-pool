@@ -21,22 +21,25 @@ def _hash_key(raw: str) -> str:
 
 
 class KeyManager:
-    """网关 key 生成/校验/吊销（依赖 AccountStore 同一 SQLite）。"""
+    """网关 key 生成/校验/吊销（依赖 AccountStore 同一 SQLite）。
 
-    def __init__(self, store: AccountStore, master_key: str = "") -> None:
+    auth_required：本地单用户模式默认 False（全放行）；
+    在 .env.keys 配 GATEWAY_AUTH=on 时为 True（完整 Bearer 校验）。
+    """
+
+    def __init__(
+        self,
+        store: AccountStore,
+        master_key: str = "",
+        auth_required: bool = False,
+    ) -> None:
         self._store = store
         self._master_key = master_key.strip()
+        self.auth_required = auth_required
 
     @property
     def master_key(self) -> str:
         return self._master_key
-
-    def auth_enabled(self) -> bool:
-        """是否启用鉴权：库内有任一 key 记录（含已吊销，吊销≠关闭鉴权）
-        或配置了 master key；两者皆无 → 兼容模式放行（本地裸跑）。"""
-        if self._master_key:
-            return True
-        return self._store.has_any_gateway_key()
 
     def create_key(self, label: str) -> dict | None:
         """生成新 key：明文只此一次返回；失败返回 None。"""

@@ -63,12 +63,11 @@ export async function enableAccount(id: string): Promise<{ ok: boolean }> {
 }
 
 // ---- C3：网关 key 管理 ----
+//
+// 本地单用户模式：后端默认免鉴权（GATEWAY_AUTH=off），管理请求直接裸调。
+// 若启用鉴权（GATEWAY_AUTH=on），浏览器可用 rememberAdminKey 存一个
+// 管理 key（生成时自动存；也可在 console 手动调），后续请求自动携带。
 
-/**
- * 管理凭证：生成 key 后存 localStorage，后续 keys 管理请求自动携带。
- * 场景：生成第一个 key 后 /api/keys 激活鉴权，不带凭证会 401 自锁。
- * 本地单管理员部署语义下可接受（这是管理台自身的凭证，非分发给客户端的 key）。
- */
 const ADMIN_KEY_STORAGE = "ocp.gateway.admin.key";
 
 export function rememberAdminKey(key: string): void {

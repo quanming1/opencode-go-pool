@@ -16,6 +16,7 @@ from opencode_pool.auth.gateway_key import KeyManager
 from opencode_pool.config import settings
 from opencode_pool.proxy import router as proxy_router
 from opencode_pool.proxy.forwarder import Forwarder
+from opencode_pool.proxy.router import alias_router as proxy_alias_router
 from opencode_pool.scheduler import run_pool_scanner
 from opencode_pool.store.sqlite_store import AccountStore
 
@@ -59,8 +60,12 @@ def create_app(config_path: str | None = None) -> FastAPI:
     recorder = UsageRecorder(store)
     app.state.usage_recorder = recorder
 
-    # C3：网关 key 管理（master key 来自 .env.keys；鉴权未启用时兼容放行）
-    key_manager = KeyManager(store, master_key=_load_master_key())
+    # C3：网关 key 管理（本地单用户默认免鉴权；.env.keys 配 GATEWAY_AUTH=on 启用校验）
+    key_manager = KeyManager(
+        store,
+        master_key=_load_master_key(),
+        auth_required=_load_auth_flag(),
+    )
     app.state.key_manager = key_manager
 
     # 代理转发器（B2：多账号外层 + 透明转发；C2：记录用量）
@@ -73,6 +78,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
     app.include_router(accounts_router)
     app.include_router(proxy_router)
+    app.include_router(proxy_alias_router)
     app.include_router(usage_router)
     app.include_router(keys_router)
 
@@ -89,6 +95,14 @@ def _load_master_key() -> str:
     from opencode_pool.accounts.loader import _parse_env_file
 
     return _parse_env_file(".env.keys").get("GATEWAY_MASTER_KEY", "").strip()
+
+
+def _load_auth_flag() -> bool:
+    """从 .env.keys 读取 GATEWAY_AUTH（on/off，默认 off=本地免鉴权）。"""
+    from opencode_pool.accounts.loader import _parse_env_file
+
+    raw = _parse_env_file(".env.keys").get("GATEWAY_AUTH", "off").strip().lower()
+    return raw in ("on", "true", "1")
 
 
 def _build_pool(config_path: str | None) -> tuple[AccountPool, AccountStore]:
