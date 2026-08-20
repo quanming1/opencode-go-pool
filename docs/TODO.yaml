@@ -179,6 +179,23 @@ stages:
           - apps/web/src/features/charts/UsageCharts.tsx
           - apps/web/src/services/api.ts
         acceptance: 请求日志记录模型与两种协议各自的 token 字段；按账号×模型聚合统计；当前活跃 Key 与剩余使用时长推测；事件日志 offset 分页；前端时间线丰富字段+分页+模型/账号负载图表；pytest/vitest/build 全绿
+  # ---- E 前端体验优化 ----
+  - id: E
+    name: 前端体验优化
+    steps:
+      - id: E1
+        title: 响应式开发（多分辨率/窗口尺寸下不挤压、不溢出）
+        status: in_progress
+        date: 2026-08-20
+        prd: docs/prd/PRD-E1-responsive.md
+        prd_status: 草稿
+        modules:
+          - apps/web/src/layout.css
+          - apps/web/src/index.css
+          - apps/web/src/features/dashboard/dashboard.css
+          - apps/web/src/App.tsx
+          - apps/web/src/components/Sidebar.tsx
+        acceptance: 建立 1280/1024/768/576 断点体系；窄屏（≤576）侧栏折叠为顶部 tab、各网格单列、表格横向可滚动；playwright 实测 360/480/768/1024/1440 各视口无横向溢出、关键区块文字不被挤压；vitest/eslint/build 全绿
   # ---- G 收尾 ----
   - id: G
     name: 收尾
