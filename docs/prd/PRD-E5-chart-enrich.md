@@ -8,7 +8,7 @@
 |---|---|
 | 阶段 | E5 |
 | 名称 | 图表再深化 · 周期切换与构成展示 |
-| 状态 | approved |
+| 状态 | 开发中 |
 | 创建日期 | 2026-08-21 |
 | 定稿日期 | 2026-08-21 |
 | 关联文档 | docs/TODO.yaml 阶段 E5；apps/web/src/features/charts/；apps/web/src/features/dashboard/useAccountPolling.ts；apps/web/src/features/usage/UsagePanel.tsx；apps/web/src/i18n/messages.ts |
@@ -109,3 +109,4 @@ return { ..., statsHours, setStatsHours };
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
+| 2026-08-21 | 实现完成（纯前端零后端改动）：useAccountPolling 加 statsHours/setStatsHours（24/72/168，refresh 依赖周期）；UsageCharts Token 拆 prompt/completion 堆叠柱 + X 轴标签随窗口自适应（>48h MM-DD HH:MM）；新增 chartData.ts 纯函数（bucketLabel/bucketSuccessRates/accountTokenShare）+ SuccessRateTrendChart（小时成功率折线，旧字段回退 request-error、空桶断点）+ AccountTokenShareChart（账号 Token 占比环图）；UsagePanel 趋势卡周期按钮组 + 「构成分析」小图栅格（成功率/Token 占比/协议/错误类型四图自适应）；ChartPalette 补 warn 色；i18n 中英新 key | 阶段 E5 开发 |

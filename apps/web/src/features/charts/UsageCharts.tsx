@@ -22,9 +22,10 @@ echarts.use([
 ]);
 
 /**
- * 用量趋势图（C2 FR5）：请求量柱状 + 错误柱 + Token 折线，双轴按小时。
- * E2：legend 文案 i18n + 系列色随主题。
- * E4：新增错误系列与成功率 tooltip（chart.tooltip.success）。
+ * 用量趋势图（C2 FR5）：请求量柱 + 错误柱 + Token（输入/输出）堆叠柱，双轴按小时。
+ * E2：legend i18n + 系列色随主题；E4：错误系列与成功率 tooltip。
+ * E5：Token 拆 prompt/completion 堆叠（输入绿/输出橙）；X 轴标签随周期自适应
+ *（≤48h 显示 HH:MM，>48h 显示 MM-DD HH:MM）。
  */
 export function UsageCharts({ stats }: { stats: StatsResponse }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -36,6 +37,8 @@ export function UsageCharts({ stats }: { stats: StatsResponse }) {
     if (!el) return;
     const c = chartColors(theme);
     const chart = echarts.init(el);
+    const longWindow = stats.hours > 48;
+    const fmt = (ts: string): string => (longWindow ? ts.slice(5, 16) : ts.slice(11, 16));
     chart.setOption({
       tooltip: {
         trigger: "axis",
@@ -48,12 +51,12 @@ export function UsageCharts({ stats }: { stats: StatsResponse }) {
           }>;
           const b = stats.buckets[items[0]?.dataIndex ?? 0];
           if (!b) return "";
-          const total = (b.error_count ?? 0) + (b.success_count ?? b.request_count);
+          const total = (b.error_count ?? 0) + (b.success_count ?? (b.request_count - (b.error_count ?? 0)));
           const rate =
             total > 0 ? Math.round(((b.success_count ?? (b.request_count - (b.error_count ?? 0))) / total) * 100) : 0;
           const lines = items.map((it) => `${it.marker}${it.seriesName}: ${it.value}`);
           return [
-            `<b>${b.ts.slice(11, 16)}</b>`,
+            `<b>${fmt(b.ts)}</b>`,
             ...lines,
             `${t("chart.legend.successRate")}: ${rate}%`,
           ].join("<br/>");
@@ -62,15 +65,16 @@ export function UsageCharts({ stats }: { stats: StatsResponse }) {
       legend: {
         data: [
           t("chart.legend.requests"),
-          t("chart.legend.token"),
           t("chart.legend.errors"),
+          t("chart.legend.prompt"),
+          t("chart.legend.completion"),
         ],
         top: 8,
       },
       grid: { left: 56, right: 56, top: 56, bottom: 32 },
       xAxis: {
         type: "category",
-        data: stats.buckets.map((b) => b.ts.slice(11, 16)),
+        data: stats.buckets.map((b) => fmt(b.ts)),
         axisLabel: { color: c.label },
         axisLine: { lineStyle: { color: c.border } },
       },
@@ -95,12 +99,20 @@ export function UsageCharts({ stats }: { stats: StatsResponse }) {
           itemStyle: { color: c.danger, opacity: 0.85 },
         },
         {
-          name: t("chart.legend.token"),
-          type: "line",
+          name: t("chart.legend.prompt"),
+          type: "bar",
+          stack: "token",
           yAxisIndex: 1,
-          data: stats.buckets.map((b) => b.prompt_tokens + b.completion_tokens),
+          data: stats.buckets.map((b) => b.prompt_tokens),
           itemStyle: { color: c.ok },
-          lineStyle: { width: 2 },
+        },
+        {
+          name: t("chart.legend.completion"),
+          type: "bar",
+          stack: "token",
+          yAxisIndex: 1,
+          data: stats.buckets.map((b) => b.completion_tokens),
+          itemStyle: { color: c.warn },
         },
       ],
     });

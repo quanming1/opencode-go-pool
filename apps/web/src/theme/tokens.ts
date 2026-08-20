@@ -56,6 +56,7 @@ export function colorTokens(theme: Theme): ColorTokens {
 export interface ChartPalette {
   accent: string;
   ok: string;
+  warn: string;
   danger: string;
   border: string;
   label: string;
@@ -67,6 +68,7 @@ export function chartColors(theme: Theme): ChartPalette {
   return {
     accent: c.accent,
     ok: c.ok,
+    warn: c.warn,
     danger: c.danger,
     border: c.border,
     label: c["text-secondary"],

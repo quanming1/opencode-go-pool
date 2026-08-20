@@ -12,6 +12,9 @@ import type {
   StatsResponse,
 } from "../../types/pool";
 
+/** E5：用量趋势可选的统计周期（小时窗口，后端 /api/stats?hours= 已支持 1..168）。 */
+export type StatsHours = 24 | 72 | 168;
+
 export interface AccountsState {
   accounts: PoolAccount[];
   stats: StatsResponse | null;
@@ -49,11 +52,13 @@ export function useAccountPolling(intervalMs = 10_000) {
   const [quotaError, setQuotaError] = useState<string | null>(null);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // E5：用量趋势统计周期（24h/3d/7d），切换后随轮询重取 /api/stats?hours=
+  const [statsHours, setStatsHours] = useState<StatsHours>(24);
 
   const refresh = useCallback(async () => {
     const results = await Promise.allSettled([
       fetchAccounts(),
-      fetchStats(24),
+      fetchStats(statsHours),
       fetchQuota(), // 非强制：服务端缓存兜底
       fetchLogsOverview(),
     ]);
@@ -85,7 +90,7 @@ export function useAccountPolling(intervalMs = 10_000) {
 
     setError(coreErrors.length > 0 ? coreErrors.join("；") : null);
     setLoading(false);
-  }, []);
+  }, [statsHours]);
 
   /** C5 FR7：强制刷新额度（?refresh=1），失败保留旧数据并返回错误文案。 */
   const forceRefreshQuota = useCallback(async (): Promise<string | null> => {
@@ -131,6 +136,8 @@ export function useAccountPolling(intervalMs = 10_000) {
     error,
     quotaError,
     loading,
+    statsHours,
+    setStatsHours,
     refresh,
     forceRefreshQuota,
   };
