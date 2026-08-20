@@ -101,3 +101,4 @@ async def responses(request: Request) -> Response:
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
+| 2026-08-21 | 实现完成：① proxy/router.py 的 `responses`/`chat_completions`/`models` 与 alias 合并为同一函数叠 `@router.*`/`@alias_router.*` 双路由装饰器，删除 3 个 alias handler；② 新建 api/_common.py（json_response + get_state_service），keys/usage/events 删除各自 `_json_response`/`_get_recorder` 改走 `_common`；③ 删除 `require_gateway_key_strict` 空壳，accounts.py（3 处依赖）/keys.py（import+3 处）改用 `require_gateway_key`。openapi 6 条路径全保留；grep 六项模式 0 命中；pytest 138 + ruff 0；独立实例双路径回归（models 内容一致、四条转发路径可达）；前端 vitest 60 + eslint 0 + build 全绿（零前端改动） | 阶段 G6 开发 |
