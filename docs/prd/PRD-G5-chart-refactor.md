@@ -8,10 +8,10 @@
 |---|---|
 | 阶段 | G5 |
 | 名称 | 代码优化 · 去除冗余代码（第二轮：图表样板收敛 + 死接口清理） |
-| 状态 | approved |
+| 状态 | 已验收 |
 | 创建日期 | 2026-08-21 |
 | 定稿日期 | 2026-08-21 |
-| 验收日期 | — |
+| 验收日期 | 2026-08-21 |
 | 关联文档 | docs/TODO.yaml 阶段 G5；apps/web/src/features/charts/；apps/web/src/features/dashboard/useAccountPolling.ts |
 
 ## 1. 背景与目标
@@ -104,3 +104,4 @@ function useEChart<T extends EChartsCoreOption>(
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
 | 2026-08-21 | 实现完成：新增 `useEChart` hook（getInstanceByDom 复用实例 + chartRef 持引用 + setOption(notMerge) + 统一 resize/dispose）；7 图表组件迁移完成（AccountLoad / AccountTokenShare / ErrorType / ModelUsage / Protocol / SuccessRateTrend / Usage），净删 109 行重复样板；删除 useAccountPolling.ts 的 AccountsState 死接口；新增 useEChart.test.tsx 5 例（init 一次 / deps 复用 / resize / 卸载 dispose / 已有实例复用） | 阶段 G5 开发 |
+| 2026-08-21 | 验收通过：7 个图表组件 grep 无 `echarts.init`/`chart.dispose`/resize 样板残留（仅 useEChart.ts 一处）；`AccountsState` 全库 0 命中；vitest 60（含 useEChart 5 例）+ eslint 0 + build 通过；playwright 实测 5 图渲染 / 主题切换 / resize（263→1003）/ 周期切换 7d 正常，protocol/errorTypes 图在旧后端下走空态分支（设计行为）；后端 pytest 138 + ruff 0 回归无影响；CI 三 job 全绿（PR #102 合并） | 阶段 G5 完成 |

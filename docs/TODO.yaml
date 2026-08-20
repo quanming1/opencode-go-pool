@@ -298,10 +298,10 @@ stages:
         acceptance: 扫描确认的 5 处死代码全部清除（describe_key / has_any_gateway_key / logging_setup 模块 / chart.tooltip.success 孤儿 key / .card-text 死类），连带 import 同步移除；复核扫描无新孤儿；pytest 138 + ruff 0 + vitest 55 + eslint 0 + build 全绿；playwright 抽查无回归
       - id: G5
         title: 代码优化 · 去除冗余代码（第二轮：图表样板收敛 + 死接口清理）
-        status: in_progress
+        status: done
         date: 2026-08-21
         prd: docs/prd/PRD-G5-chart-refactor.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/web/src/features/charts/useEChart.ts
           - apps/web/src/features/charts/UsageCharts.tsx
