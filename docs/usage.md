@@ -112,7 +112,7 @@ curl http://127.0.0.1:48700/api/switch-history
 }
 ```
 
-> 协议：代理只透传 OpenAI Responses 协议（`POST /v1/responses`），不做 Chat Completions 转换。
+> 协议：代理透明转发两种 OpenAI 协议，不做协议转换——`POST /v1/responses`（Responses 协议，如 muse-spark / gpt-5.6-luna）与 `POST /v1/chat/completions`（Chat Completions 协议，如 kimi / minimax / glm / deepseek）。客户端按模型选择对应端点（与直连 OpenCode 相同）。
 
 ## 5. 常见问题
 

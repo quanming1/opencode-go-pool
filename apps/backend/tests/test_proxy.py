@@ -195,3 +195,87 @@ def test_list_models_aggregates_accounts():
     assert resp.status_code == 200
     ids = [m["id"] for m in resp.json()["data"]]
     assert ids == ["gpt-5.6-luna", "gpt-5.6-terra"]  # 去重保序
+
+
+# ---- chat/completions 协议 ----
+
+def test_chat_completions_forwards_to_chat_endpoint():
+    """POST /api/v1/chat/completions 应转发到上游 /chat/completions（非 /responses）。"""
+    urls: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        urls.append(str(req.url))
+        return httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-x",
+                "object": "chat.completion",
+                "choices": [
+                    {"message": {"role": "assistant", "content": "好"}, "finish_reason": "stop"}
+                ],
+                "usage": {"prompt_tokens": 8, "completion_tokens": 3, "total_tokens": 11},
+            },
+        )
+
+    pool = AccountPool(accounts=[Account(id="a1", name="A", api_key="sk-1111")])
+    app, client = _app_with_forwarder(pool, handler)
+
+    resp = client.post(
+        "/api/v1/chat/completions",
+        json={"model": "kimi-k2.5", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["choices"][0]["message"]["content"] == "好"
+    assert urls == ["http://fake/v1/chat/completions"]
+
+
+def test_chat_completions_records_usage():
+    """chat completions 成功响应的 usage（prompt/completion_tokens）计入统计。"""
+    import tempfile
+    from pathlib import Path
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from opencode_pool.proxy.forwarder import Forwarder
+    from opencode_pool.proxy.router import router as proxy_router
+    from opencode_pool.store.sqlite_store import AccountStore
+    from opencode_pool.usage.recorder import UsageRecorder
+
+    with tempfile.TemporaryDirectory() as td:
+        store = AccountStore(str(Path(td) / "cc.db"))
+        pool = AccountPool(
+            accounts=[Account(id="a1", name="A", api_key="sk-1111")], store=store
+        )
+        rec = UsageRecorder(store)
+
+        transport = httpx.MockTransport(
+            lambda req: httpx.Response(
+                200,
+                json={
+                    "choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
+                    "usage": {"prompt_tokens": 8, "completion_tokens": 3},
+                },
+            )
+        )
+        app = FastAPI()
+        app.state.account_pool = pool
+        app.state.usage_recorder = rec
+        app.state.forwarder = Forwarder(
+            pool=pool,
+            upstream_base_url="http://fake/v1",
+            client=httpx.AsyncClient(transport=transport),
+            usage_recorder=rec,
+        )
+        app.include_router(proxy_router)
+        client = TestClient(app)
+
+        client.post(
+            "/api/v1/chat/completions",
+            json={"model": "kimi-k2.5", "messages": [{"role": "user", "content": "hi"}]},
+        )
+        stats = store.aggregate_usage(hours=24)
+        assert stats["totals"]["request_count"] == 1
+        assert stats["totals"]["prompt_tokens"] == 8
+        assert stats["totals"]["completion_tokens"] == 3
+        store.close()

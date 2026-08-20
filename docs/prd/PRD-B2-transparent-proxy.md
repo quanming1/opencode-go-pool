@@ -146,3 +146,4 @@ async with client.stream("POST", url, json=payload, headers=auth, timeout=...) a
 |---|---|---|
 | 2026-08-19 | 初始定稿 | — |
 | 2026-08-19 | 验收通过：pytest 37 passed（含新增 13 个代理测试）、ruff 无警告；非流式/流式/切换/503/脱敏全部覆盖 | 阶段 B2 完成 |
+| 2026-08-20 | 新增 FR：`POST /api/v1/chat/completions` Chat Completions 透明转发（Forwarder.forward 增加 upstream_path 参数，与 /responses 共用账号池与切换逻辑）；测试 fixture 隔离本地真实 config/DB | 真实接入发现 OpenCode 仅 muse-spark/gpt-5.6-luna 走 responses 协议，kimi/minimax/glm/deepseek 等走 chat completions——只有 /responses 端点时 12/14 模型 400；测试曾读到生产账号数据 |

@@ -20,4 +20,9 @@
 
 ### Fixed
 
-- 账号密钥支持 apps/backend/.env（KEY=VALUE）：${VAR} 解析顺序 = 进程环境变量 > .env；对齐 usage.md 文档声明（B1 变更记录留痕）
+- 账号密钥支持 apps/backend/.env.keys（KEY=VALUE）：${VAR} 解析顺序 = 进程环境变量 > .env.keys；密钥与应用配置（.env，严格模式）职责分离（B1 变更记录留痕）
+
+### Added
+
+- B2 扩展：POST /api/v1/chat/completions 透明转发（OpenCode 的 kimi/minimax/glm/deepseek 等 completions 模型；与 /responses 共用账号池与切换）
+- 测试隔离：conftest fixture 用 tmp_path 隔离 config 与 DB，不再触碰本地真实账号配置与生产数据库
