@@ -36,6 +36,25 @@ async def responses(request: Request) -> Response:
         )
 
 
+@router.post("/chat/completions")
+async def chat_completions(request: Request) -> Response:
+    """OpenAI Chat Completions 透明转发（流式/非流式）。
+
+    与 /responses 共用账号池与切换逻辑，仅上游端点不同
+    （OpenCode 的 kimi/minimax/glm/deepseek 等模型走此协议）。
+    """
+    forwarder = _get_forwarder(request)
+    try:
+        return await forwarder.forward(request, upstream_path="/chat/completions")
+    except Exception as exc:  # noqa: BLE001 - 兜底避免 500 溅出内幕
+        logger.warning("[proxy] chat/completions 处理异常: %s", type(exc).__name__)
+        return Response(
+            content=json.dumps({"error": {"message": "proxy internal error"}}),
+            status_code=502,
+            media_type="application/json",
+        )
+
+
 @router.get("/models")
 async def models(request: Request) -> Response:
     """返回账号池合并模型清单。"""

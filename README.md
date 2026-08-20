@@ -67,6 +67,7 @@ curl http://127.0.0.1:48700/api/accounts
 | `/api/stats?hours=24` | GET | 用量聚合（按小时桶 + 按账号汇总） |
 | `/api/switch-history?limit=50` | GET | 账号切换事件历史（中文语义标签） |
 | `/api/v1/responses` | POST | OpenAI Responses 透明转发（支持流式 SSE） |
+| `/api/v1/chat/completions` | POST | OpenAI Chat Completions 透明转发（支持流式 SSE） |
 | `/api/v1/models` | GET | 账号池合并模型清单 |
 
 转发示例：

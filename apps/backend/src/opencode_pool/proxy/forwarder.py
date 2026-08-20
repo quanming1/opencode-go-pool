@@ -50,8 +50,17 @@ class Forwarder:
         # C2：可选用量记录器（record() 签名见 usage/recorder.py）
         self._usage = usage_recorder
 
-    async def forward(self, request: Request) -> Response:
-        """处理单个 Responses 请求，返回最终响应（可能已切换账号）。"""
+    async def forward(self, request: Request, upstream_path: str = "/responses") -> Response:
+        """处理单个转发请求，返回最终响应（可能已切换账号）。
+
+        Args:
+            request: 入站请求（body 为上游协议原文）。
+            upstream_path: 上游端点路径——/responses（Responses 协议）
+                或 /chat/completions（Chat Completions 协议）。
+                同一账号池对不同模型暴露两种协议（OpenCode：muse/luna 走
+                responses，kimi/minimax/glm/deepseek 走 chat completions），
+                客户端按模型选端点，代理只做透明转发不做协议转换。
+        """
         payload = await request.json()
         stream = bool(payload.get("stream", False))
 
@@ -64,7 +73,7 @@ class Forwarder:
             if account is None:
                 break
             try:
-                return await self._forward_once(request, account, payload, stream)
+                return await self._forward_once(request, account, payload, stream, upstream_path)
             except UpstreamError as exc:
                 last_error = exc
                 if exc.kind not in (ErrorKind.BAD_REQUEST,):
@@ -107,10 +116,11 @@ class Forwarder:
     # ---- 内部 ----
 
     async def _forward_once(
-        self, request: Request, account: Account, payload: dict[str, Any], stream: bool
+        self, request: Request, account: Account, payload: dict[str, Any], stream: bool,
+        upstream_path: str = "/responses",
     ) -> Response:
         client = self._client or httpx.AsyncClient(timeout=self._timeout)
-        url = f"{self._base_url(account)}/responses"
+        url = f"{self._base_url(account)}{upstream_path}"
         headers = {
             "Authorization": f"Bearer {account.api_key}",
             "Content-Type": "application/json",
