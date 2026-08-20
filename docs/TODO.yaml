@@ -238,16 +238,16 @@ stages:
         acceptance: /api/stats 扩展 success_count/success_rate + error_types + summary（耗时/协议/事件计数，events 派生不改表）；前端三图富化 + 运行汇总卡 + 协议/错误类型新图；pytest 138 + vitest 47 + eslint 0 + build 全绿；独立实例实测新字段、运行中 48700 未重启（前端旧字段容错）
       - id: E5
         title: 图表再深化 · 周期切换与构成展示（纯前端）
-        status: in_progress
+        status: done
         date: 2026-08-21
         prd: docs/prd/PRD-E5-chart-enrich.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/web/src/features/dashboard/useAccountPolling.ts
           - apps/web/src/features/charts/
           - apps/web/src/features/usage/UsagePanel.tsx
           - apps/web/src/i18n/messages.ts
-        acceptance: 时间周期切换（24h/3d/7d，复用 /api/stats?hours=，零后端改动）；用量趋势 Token 拆 prompt/completion 堆叠 + X 轴自适应；新增小时级成功率趋势图与账号 Token 占比环图（基于现有字段即可真实上屏）；vitest/eslint/build 全绿；运行中 48700 后端不受影响
+        acceptance: 统计周期切换（24h/3d/7d，复用 /api/stats?hours=，零后端改动）；用量趋势 Token 拆 prompt/completion 堆叠 + X 轴自适应（>48h MM-DD HH:MM）；新增小时级成功率趋势图（旧字段回退推算、空桶断点）与账号 Token 占比环图；「构成分析」栅格四图自适应排布；ChartPalette 补 warn；vitest 55 + eslint 0 + build 全绿；运行中 48700 后端不受影响、成功率/Token 占比基于现有数据真实上屏
   # ---- G 收尾 ----
   - id: G
     name: 收尾

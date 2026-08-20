@@ -8,9 +8,10 @@
 |---|---|
 | 阶段 | E5 |
 | 名称 | 图表再深化 · 周期切换与构成展示 |
-| 状态 | 开发中 |
+| 状态 | 已验收 |
 | 创建日期 | 2026-08-21 |
 | 定稿日期 | 2026-08-21 |
+| 验收日期 | 2026-08-21 |
 | 关联文档 | docs/TODO.yaml 阶段 E5；apps/web/src/features/charts/；apps/web/src/features/dashboard/useAccountPolling.ts；apps/web/src/features/usage/UsagePanel.tsx；apps/web/src/i18n/messages.ts |
 
 ## 1. 背景与目标
@@ -110,3 +111,4 @@ return { ..., statsHours, setStatsHours };
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
 | 2026-08-21 | 实现完成（纯前端零后端改动）：useAccountPolling 加 statsHours/setStatsHours（24/72/168，refresh 依赖周期）；UsageCharts Token 拆 prompt/completion 堆叠柱 + X 轴标签随窗口自适应（>48h MM-DD HH:MM）；新增 chartData.ts 纯函数（bucketLabel/bucketSuccessRates/accountTokenShare）+ SuccessRateTrendChart（小时成功率折线，旧字段回退 request-error、空桶断点）+ AccountTokenShareChart（账号 Token 占比环图）；UsagePanel 趋势卡周期按钮组 + 「构成分析」小图栅格（成功率/Token 占比/协议/错误类型四图自适应）；ChartPalette 补 warn 色；i18n 中英新 key | 阶段 E5 开发 |
+| 2026-08-21 | 验收通过：vitest 55（新增 bucketLabel/bucketSuccessRates/accountTokenShare/hours 切换 8 用例）+ eslint 0 + build 通过；playwright 实测周期切换（24h→7d 请求 hours=168、按钮选中态正确、切回正常）、Token 堆叠渲染、成功率趋势与账号 Token 占比图基于运行中旧后端数据真实上屏（protocol/错误类型空态符合旧后端现状）；全程零后端改动、未触碰 48700 | 阶段 E5 完成 |
