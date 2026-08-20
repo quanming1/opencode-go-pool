@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     # B3：冷却自动扫描与连续失败阈值
     pool_scan_interval_seconds: int = 60
     max_consecutive_failures: int = 3
+    # B4：SQLite 状态持久化
+    db_path: str = "data/opencode_pool.db"
 
     # 严格模式：环境里出现未定义字段时直接报错，防配置漂移
     model_config = SettingsConfigDict(
