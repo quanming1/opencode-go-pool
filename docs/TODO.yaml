@@ -285,14 +285,14 @@ stages:
         acceptance: CI 三 job（backend 产 wheel / web 传 dist / pack 组装+真实校验并上传 release-package）全绿，artifact 可下载；tag v* 自动挂 GitHub Release；本地与 CI 双重验证 wheel 可安装、dist 资源完整；README/CONTRIBUTING 同步
       - id: G4
         title: 代码优化 · 去除冗余代码
-        status: in_progress
+        status: done
         date: 2026-08-21
         prd: docs/prd/PRD-G4-dead-code-cleanup.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/backend/src/opencode_pool/accounts/pool.py
           - apps/backend/src/opencode_pool/store/sqlite_store.py
           - apps/backend/src/opencode_pool/logging_setup.py
           - apps/web/src/i18n/messages.ts
           - apps/web/src/index.css
-        acceptance: 扫描确认的 5 处死代码全部清除（describe_key / has_any_gateway_key / logging_setup 模块 / chart.tooltip.success 孤儿 key / .card-text 死类），连带 import 同步清理；重扫无新孤儿；pytest/ruff + vitest/eslint/build 全绿
+        acceptance: 扫描确认的 5 处死代码全部清除（describe_key / has_any_gateway_key / logging_setup 模块 / chart.tooltip.success 孤儿 key / .card-text 死类），连带 import 同步移除；复核扫描无新孤儿；pytest 138 + ruff 0 + vitest 55 + eslint 0 + build 全绿；playwright 抽查无回归
