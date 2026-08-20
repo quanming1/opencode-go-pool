@@ -508,4 +508,92 @@
   border-color: var(--color-danger);
 }
 
+/* D1：事件时间线结构化布局 —— time/徽章/摘要 同行，字段详情可展开 */
+.event-timeline__item {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.event-timeline__detail {
+  width: 100%;
+  color: var(--color-text-secondary);
+}
+
+.event-timeline__detail summary {
+  cursor: pointer;
+  font-size: 11px;
+  user-select: none;
+}
+
+.event-timeline__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 2px 16px;
+  margin: 6px 0 2px;
+  font-size: 11px;
+}
+
+.event-timeline__field {
+  display: flex;
+  gap: 8px;
+}
+
+.event-timeline__field dt {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.event-timeline__field dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-timeline__pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.event-timeline__page {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+/* D1：运行概览（活跃 Key / 速率 / 剩余时长） */
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.overview-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+}
+
+.overview-cell__label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.overview-cell__value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.overview-cell__hint {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
 \n

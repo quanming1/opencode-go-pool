@@ -2,13 +2,17 @@ import { useAccountPolling } from "../dashboard/useAccountPolling";
 import { SummaryCards } from "../dashboard/SummaryCards";
 import { AccountCard } from "../dashboard/AccountCard";
 import { UsageCharts } from "../charts/UsageCharts";
+import { ModelUsageChart } from "../charts/ModelUsageChart";
+import { AccountLoadChart } from "../charts/AccountLoadChart";
 import { EventTimeline } from "../charts/EventTimeline";
 import { AccountControls } from "./AccountControls";
+import { LogsOverviewCard } from "./LogsOverviewCard";
 import { useCallback } from "react";
 
 /**
- * Tab1：用量信息（C3 FR8；C5 额度）。
- * 汇总卡（含额度总览）+ 账号卡（额度区块 + 控制按钮）+ 用量趋势图 + 统一事件时间线。
+ * Tab1：用量信息（C3 FR8；C5 额度；D1 日志升级）。
+ * 汇总卡（含额度总览）+ 运行概览（活跃 Key/速率/剩余时长）+ 账号卡（额度区块 + 控制按钮）
+ * + 用量趋势图 + 模型分布/账号负载图 + 统一事件时间线（分页）。
  * 控制操作后 forceTick 立即拉取最新数据（不等下一轮询）；
  * 「刷新额度」强制绕过服务端缓存重新查询上游。
  */
@@ -16,7 +20,8 @@ export function UsagePanel() {
   const {
     accounts,
     stats,
-    events,
+    overview,
+    overviewError,
     quota,
     quotaBusy,
     error,
@@ -44,6 +49,8 @@ export function UsagePanel() {
           无法刷新大盘数据: {error}（显示上次数据）
         </p>
       )}
+
+      <LogsOverviewCard overview={overview} error={overviewError} />
 
       <div className="account-list">
         {loading && accounts.length === 0 ? (
@@ -95,8 +102,26 @@ export function UsagePanel() {
       </section>
 
       <section className="card">
+        <h2 className="card-title">模型请求分布</h2>
+        {stats && stats.per_account_models.length > 0 ? (
+          <ModelUsageChart stats={stats} />
+        ) : (
+          <p className="dashboard-empty">暂无请求数据</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h2 className="card-title">账号负载</h2>
+        {stats && stats.per_account.length > 0 ? (
+          <AccountLoadChart stats={stats} />
+        ) : (
+          <p className="dashboard-empty">暂无账号请求数据</p>
+        )}
+      </section>
+
+      <section className="card">
         <h2 className="card-title">事件时间线</h2>
-        <EventTimeline events={events} />
+        <EventTimeline />
       </section>
     </div>
   );

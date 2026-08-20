@@ -3,9 +3,9 @@
 import type {
   AccountsResponse,
   CreatedGatewayKey,
-  EventItem,
   EventsResponse,
   GatewayKey,
+  LogsOverview,
   PoolAccount,
   QuotaResponse,
   StatsResponse,
@@ -42,10 +42,21 @@ export async function fetchStats(hours = 24): Promise<StatsResponse> {
   return fetchJson<StatsResponse>(`/api/stats?hours=${hours}`);
 }
 
-export async function fetchEvents(limit = 100, type = ""): Promise<EventItem[]> {
+/** D1 FR5：分页拉取统一事件（返回 offset + has_more 供翻页）。 */
+export async function fetchEventsPage(
+  limit = 20,
+  offset = 0,
+  type = "",
+): Promise<EventsResponse> {
   const query = type ? `&type=${encodeURIComponent(type)}` : "";
-  const data = await fetchJson<EventsResponse>(`/api/events?limit=${limit}${query}`);
-  return data.events;
+  return fetchJson<EventsResponse>(
+    `/api/events?limit=${limit}&offset=${offset}${query}`,
+  );
+}
+
+/** D1 FR3/FR4：日志概览（当前活跃 Key + 速率 + 剩余时长推测）。 */
+export async function fetchLogsOverview(): Promise<LogsOverview> {
+  return fetchJson<LogsOverview>("/api/logs/overview");
 }
 
 // ---- C5：额度 ----

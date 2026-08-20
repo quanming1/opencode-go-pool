@@ -167,3 +167,4 @@
 |---|---|---|
 | 2026-08-20 | 初始定稿 | 用户发起日志系统升级功能（模型/token 双协议/按 Key 模型统计/剩余推测/活跃 Key/前端分页+图表），覆盖 TODO D1 立项范围 |
 | 2026-08-20 | 后端实现完成：新增 `/api/logs/overview`、`/api/stats` 扩展 `per_account_models`、`/api/events` 支持 `offset` 分页；双协议 token 提取补显式测试；store 新增 `recent_usage_rate` | D1 后端开发收口，行为变更留痕（测试 135 passed + 独立端口端到端实测通过） |
+| 2026-08-20 | 前端实现完成：事件时间线自包含分页（20 条/页 + offset 翻页 + 自动刷新首帧）与字段详情展开；新增运行概览卡（活跃 Key/速率/剩余时长）与模型分布、账号负载两张 ECharts 图 | D1 前端开发收口（vitest 33 + eslint 0 + build 通过），分页数据源改为 `/api/events?offset` |
