@@ -1,0 +1,360 @@
+"""账号池：加载多账号、维护状态机、提供脱敏查询与选取。
+
+状态机（B1 + B3 增强）：
+    healthy --mark_down(reason, retry_after?)--> cooldown
+        （cooldown_until = now + retry_after 或默认 TTL）
+    cooldown --scan_cooldowns()/惰性_pick--> healthy（冷却到期自动恢复）
+      --连续失败达阈值--> disabled（auto-disabled：需人工 enable 恢复）
+    healthy/cooldown --disable(reason)--> disabled
+    disabled --enable()--> 恢复（若原本 cooldown 且未到期，回到 cooldown）
+
+线程安全：所有可变操作用 lock 保护。
+统一事件（C4）：状态变更点向 event_recorder 发射 key_cooldown_started /
+key_cooldown_completed / key_cooldown_cleared / key_disabled / key_enabled
+事件；旧 switch_history 环形历史已删除（PRD-C4 §3）。
+"""
+
+import logging
+import threading
+from collections.abc import Callable
+from datetime import datetime, timedelta
+
+from opencode_pool.accounts.models import Account, AccountStatus, mask_api_key
+from opencode_pool.events.recorder import EventType
+
+logger = logging.getLogger("opencode_pool.accounts.pool")
+
+# 默认冷却 TTL：5 小时（对齐 OpenCode Go 5 小时窗口语义）
+DEFAULT_COOLDOWN_SECONDS = 5 * 60 * 60
+# 默认连续失败自动禁用阈值
+DEFAULT_MAX_CONSECUTIVE_FAILURES = 3
+
+
+class AccountPool:
+    """多账号池：加载 + 状态机 + 脱敏视图 + 选取 + 统一事件。"""
+
+    def __init__(
+        self,
+        accounts: list[Account] | None = None,
+        cooldown_seconds: int = DEFAULT_COOLDOWN_SECONDS,
+        max_consecutive_failures: int = DEFAULT_MAX_CONSECUTIVE_FAILURES,
+        now: Callable[[], datetime] = datetime.now,
+        store: object | None = None,
+        event_recorder: object | None = None,
+    ) -> None:
+        self._accounts: dict[str, Account] = {a.id: a for a in (accounts or [])}
+        self._cooldown_seconds = cooldown_seconds
+        self._max_consecutive_failures = max_consecutive_failures
+        self._now = now
+        self._lock = threading.Lock()
+        # B4：可选持久化存储（AccountStore 或兼容接口）；None = 纯内存
+        self._store = store
+        # C4：可选统一事件记录器（record(type_, data, meta) duck-typing）
+        self._event_recorder = event_recorder
+
+    # ---- 查询 ----
+
+    def get_all(self) -> list[Account]:
+        """返回全部账号（引用原对象；外部应只读）。"""
+        with self._lock:
+            return list(self._accounts.values())
+
+    def public_views(self) -> list[dict]:
+        """全部账号的脱敏视图（不含 api_key）。"""
+        with self._lock:
+            return [a.public_view() for a in self._accounts.values()]
+
+    def account(self, account_id: str) -> Account | None:
+        with self._lock:
+            return self._accounts.get(account_id)
+
+    def pick_next(self) -> Account | None:
+        """返回第一个 healthy 且 enabled 的账号；无则 None。
+
+        惰性处理 cooldown 到期：选中前先检查并恢复过期账号（B1）。
+        B3：active 标记账号被使用（调用方在成功转发后调 record_success）。
+        """
+        with self._lock:
+            self._recover_expired()
+            for a in self._accounts.values():
+                if a.status == AccountStatus.HEALTHY and a.enabled:
+                    return a
+            return None
+
+    # ---- 状态流转 ----
+
+    def mark_down(
+        self,
+        account_id: str,
+        reason: str,
+        retry_after: int | None = None,
+        kind: str = "error",
+    ) -> bool:
+        """healthy -> cooldown（或连续失败达阈值 -> disabled）。
+
+        Args:
+            account_id: 目标账号。
+            reason: 错误原因（不含密钥）。
+            retry_after: 上游 Retry-After 秒数；有则 cooldown_until=now+retry_after，
+                否则用默认 TTL（B3 FR2）。
+            kind: 错误分类（quota/auth/server/...），入切换历史。
+
+        Returns:
+            False 当账号不存在或已 disabled。
+        """
+        with self._lock:
+            a = self._accounts.get(account_id)
+            if a is None:
+                return False
+            if not a.enabled:
+                return False
+
+            delay = retry_after if retry_after else self._cooldown_seconds
+            a.status = AccountStatus.COOLDOWN
+            a.cooldown_until = self._now() + timedelta(seconds=max(1, delay))
+            a.last_error = reason
+            a.error_count += 1
+            a.consecutive_failures += 1
+
+            # B3 FR3：连续失败达阈值 → 自动禁用（机器判定，人工 enable 恢复）
+            if a.consecutive_failures >= self._max_consecutive_failures:
+                a.status = AccountStatus.DISABLED
+                a.enabled = False  # 禁用态不再参与 pick
+                a.last_error = f"auto-disabled: consecutive failures ({a.consecutive_failures})"
+                self._emit(
+                    EventType.KEY_DISABLED,
+                    {"account_id": account_id, "reason": a.last_error, "automatic": True},
+                )
+                self._persist(a)
+                logger.error(
+                    "[accounts] %s 连续失败 %d 次（阈值 %d），自动禁用",
+                    account_id,
+                    a.consecutive_failures,
+                    self._max_consecutive_failures,
+                )
+                return True
+
+            self._emit(
+                EventType.KEY_COOLDOWN_STARTED,
+                {
+                    "account_id": account_id,
+                    "reason": reason,
+                    "error_type": kind,
+                    "cooldown_until": (
+                        a.cooldown_until.isoformat() if a.cooldown_until else None
+                    ),
+                    "cooldown_seconds": max(1, delay),
+                    "consecutive_failures": a.consecutive_failures,
+                },
+            )
+            self._persist(a)
+            logger.warning(
+                "[accounts] %s 进入冷却（TTL=%ss），kind=%s 原因: %s",
+                account_id,
+                delay,
+                kind,
+                reason,
+            )
+            return True
+
+    def clear_account(self, account_id: str) -> bool:
+        """任意状态 -> healthy，清空运行时字段。disabled 账号不恢复 enabled。"""
+        with self._lock:
+            a = self._accounts.get(account_id)
+            if a is None:
+                return False
+            previous_status = a.status.value
+            a.status = AccountStatus.HEALTHY
+            a.cooldown_until = None
+            a.last_error = None
+            a.error_count = 0
+            a.consecutive_failures = 0
+            self._emit(
+                EventType.KEY_COOLDOWN_CLEARED,
+                {
+                    "account_id": account_id,
+                    "previous_status": previous_status,
+                    "reason": "manual clear",
+                },
+            )
+            self._persist(a)
+            logger.info("[accounts] %s 清除状态 -> healthy", account_id)
+            return True
+
+    def record_success(self, account_id: str) -> None:
+        """成功使用：重置连续失败计数（累计 error_count 保留）。"""
+        with self._lock:
+            a = self._accounts.get(account_id)
+            if a is not None and a.consecutive_failures != 0:
+                a.consecutive_failures = 0
+                self._persist(a)
+
+    def disable(self, account_id: str, reason: str) -> bool:
+        """手动禁用（disabled 优先于其他状态）。"""
+        with self._lock:
+            a = self._accounts.get(account_id)
+            if a is None:
+                return False
+            a.enabled = False
+            a.status = AccountStatus.DISABLED
+            a.last_error = reason
+            self._emit(
+                EventType.KEY_DISABLED,
+                {"account_id": account_id, "reason": reason, "automatic": False},
+            )
+            self._persist(a)
+            logger.warning("[accounts] %s 已禁用: %s", account_id, reason)
+            return True
+
+    def enable(self, account_id: str) -> bool:
+        """解除禁用。若此前在 cooldown 且未到期 → 回到 cooldown 等过期。"""
+        with self._lock:
+            a = self._accounts.get(account_id)
+            if a is None:
+                return False
+            a.enabled = True
+            if a.cooldown_until and a.cooldown_until > self._now():
+                a.status = AccountStatus.COOLDOWN
+            else:
+                a.status = AccountStatus.HEALTHY
+                a.cooldown_until = None
+                a.error_count = 0
+                a.consecutive_failures = 0
+            self._emit(
+                EventType.KEY_ENABLED,
+                {"account_id": account_id, "reason": "manual enable"},
+            )
+            self._persist(a)
+            logger.info("[accounts] %s 已启用", account_id)
+            return True
+
+    # ---- B3：主动扫描 ----
+
+    def scan_cooldowns(self) -> int:
+        """主动扫描冷却到期的账号并恢复 healthy，返回恢复个数（B3 FR1）。"""
+        with self._lock:
+            recovered = 0
+            now = self._now()
+            for a in self._accounts.values():
+                if (
+                    a.status == AccountStatus.COOLDOWN
+                    and a.cooldown_until
+                    and now >= a.cooldown_until
+                ):
+                    a.status = AccountStatus.HEALTHY
+                    a.cooldown_until = None
+                    a.last_error = None
+                    a.error_count = 0
+                    a.consecutive_failures = 0
+                    self._emit(
+                        EventType.KEY_COOLDOWN_COMPLETED,
+                        {
+                            "account_id": a.id,
+                            "previous_status": "cooldown",
+                            "reason": "cooldown expired",
+                        },
+                    )
+                    self._persist(a)
+                    recovered += 1
+            if recovered:
+                logger.info("[accounts] 主动扫描恢复 %d 个账号", recovered)
+            return recovered
+
+    def _recover_expired(self) -> None:
+        """pick 前惰性恢复（既有逻辑，scan_cooldowns 的辅助）。"""
+        now = self._now()
+        for a in self._accounts.values():
+            if (
+                a.status == AccountStatus.COOLDOWN
+                and a.cooldown_until
+                and now >= a.cooldown_until
+            ):
+                a.status = AccountStatus.HEALTHY
+                a.cooldown_until = None
+                a.last_error = None
+                a.error_count = 0
+                a.consecutive_failures = 0
+                self._emit(
+                    EventType.KEY_COOLDOWN_COMPLETED,
+                    {
+                        "account_id": a.id,
+                        "previous_status": "cooldown",
+                        "reason": "cooldown expired (lazy)",
+                    },
+                )
+                self._persist(a)
+
+    def _emit(self, type_: str, data: dict) -> None:
+        """向统一事件流发射事件（C4；记录器缺失/失败一律降级）。"""
+        if self._event_recorder is None:
+            return
+        try:
+            self._event_recorder.record(type_, data, meta={"source": "account_pool"})
+        except Exception:  # noqa: BLE001 - 事件失败不影响状态机
+            pass
+
+    # ---- B4：持久化 ----
+
+    def restore_from_store(self) -> int:
+        """从 store 恢复账号运行时状态，返回恢复条数。
+
+        覆盖配置默认的 healthy；cooldown 中但已到期的账号按当前时间转为 healthy。
+        """
+        if self._store is None:
+            return 0
+        states = self._store.load_accounts_state()
+        restored = 0
+        with self._lock:
+            for account_id, st in states.items():
+                a = self._accounts.get(account_id)
+                if a is None:
+                    continue
+                self._apply_restored_state(a, st)
+                restored += 1
+        return restored
+
+    def _apply_restored_state(self, a: Account, st: dict) -> None:
+        """把 store 读出的状态字段套到账号（含过期冷却懒恢复）。"""
+        status_str = st.get("status", AccountStatus.HEALTHY.value)
+        cooldown_until = st.get("cooldown_until")
+        a.enabled = bool(st.get("enabled", True))
+        a.error_count = int(st.get("error_count", 0) or 0)
+        a.consecutive_failures = int(st.get("consecutive_failures", 0) or 0)
+        a.last_error = st.get("last_error")
+        if cooldown_until:
+            try:
+                a.cooldown_until = datetime.fromisoformat(cooldown_until)
+            except ValueError:
+                a.cooldown_until = None
+        else:
+            a.cooldown_until = None
+
+        if status_str == AccountStatus.COOLDOWN.value:
+            if a.cooldown_until and self._now() >= a.cooldown_until:
+                a.status = AccountStatus.HEALTHY
+                a.cooldown_until = None
+                a.last_error = None
+            else:
+                a.status = AccountStatus.COOLDOWN
+        elif status_str == AccountStatus.DISABLED.value:
+            a.status = AccountStatus.DISABLED
+            a.enabled = False
+        else:
+            a.status = AccountStatus.HEALTHY
+
+    def _persist(self, a: Account) -> None:
+        """状态变更后写回 store（内部调用，均已在锁内）。"""
+        if self._store is not None:
+            try:
+                self._store.save_state(a)
+            except Exception:  # noqa: BLE001 - DB 降级不崩服务
+                pass
+
+    # ---- 日志用脱敏 ----
+
+    def describe_key(self, account_id: str) -> str:
+        """用于日志的脱敏密钥（仅末 4 位）。"""
+        a = self._accounts.get(account_id)
+        if a is None:
+            return "<unknown>"
+        return mask_api_key(a.api_key)

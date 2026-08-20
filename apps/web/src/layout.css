@@ -1,0 +1,165 @@
+/* C3 左右分栏布局：左侧 tab 导航 + 右侧内容区。 */
+
+.page-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-tab {
+  appearance: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  padding: 14px 18px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-tab--active {
+  color: var(--color-accent);
+  border-right: 2px solid var(--color-accent);
+  background: #f9fafb;
+  font-weight: 600;
+}
+
+/* 页面结构（覆盖旧单页布局） */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.page-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* 按钮基础样式（直角、细边框，无阴影） */
+.btn {
+  appearance: none;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.btn-danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* 账号控制按钮组 */
+.account-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.account-controls__error {
+  color: var(--color-danger);
+  font-size: 12px;
+}
+
+/* keys 面板（占满内容区宽度） */
+.keys-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 解锁区块（401 自锁恢复入口） */
+.key-unlock {
+  border-color: var(--color-warn);
+}
+
+.keys-create {
+  display: flex;
+  gap: 8px;
+}
+
+.keys-input {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.key-once {
+  border: 1px solid var(--color-warn);
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.key-once__warn {
+  color: var(--color-warn);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.key-once__row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.key-once__code {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  padding: 6px 8px;
+  font-size: 12px;
+  word-break: break-all;
+  background: #f9fafb;
+}
+
+.keys-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.keys-table th,
+.keys-table td {
+  border: 1px solid var(--color-border);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.keys-table th {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  background: #f9fafb;
+}
+
+.keys-confirm {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--color-danger);
+  font-size: 12px;
+}

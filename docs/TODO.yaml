@@ -18,9 +18,10 @@ stages:
     steps:
       - id: A1
         title: 仓库骨架 + Rondo 规范落地
-        status: in_progress
+        status: done
+        date: 2026-08-19
         prd: docs/prd/PRD-A1-skeleton-rondo.md
-        prd_status: approved
+        prd_status: 已验收
         modules:
           - AGENTS.md
           - docs/TODO.yaml
@@ -29,81 +30,158 @@ stages:
           - .githooks/
           - CHANGELOG.md
           - .gitignore
-        acceptance: hooks 启用（core.hooksPath=.githooks）；提交校验与 push 保护生效；main+develop 分支就位
+        acceptance: 全部通过——hooksPath=.githooks、main+develop 就位、初始提交 96293b9
       - id: A2
         title: 后端 FastAPI 骨架
-        status: todo
+        status: done
+        date: 2026-08-19
         prd: docs/prd/PRD-A2-backend-skeleton.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/backend/
-        acceptance: pytest 全过 + ruff 无警告 + /health 返回 200
+        acceptance: 全部通过——pytest 5 passed、ruff 无警告、/health 实测 200 {"status":"ok","version":"0.1.0"}
       - id: A3
         title: 前端 React+Vite+ECharts 骨架
-        status: todo
+        status: done
+        date: 2026-08-19
         prd: docs/prd/PRD-A3-web-skeleton.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/web/
-        acceptance: eslint 通过 + vitest 通过 + vite build 成功 + 白色简洁 UI（无阴影无圆角）
+        acceptance: 全部通过——eslint 无告警、vitest 2 passed、vite build 成功；DOM 实测 radius=0/shadow=none/纯白背景、ECharts canvas 渲染
   # ---- B 代理核心 ----
   - id: B
     name: 代理核心
     steps:
       - id: B1
         title: 账号池配置与状态机
-        status: todo
+        status: done
+        date: 2026-08-19
+        prd: docs/prd/PRD-B1-accounts-pool.md
+        prd_status: 已验收
         modules:
-          - apps/backend/src/accounts/
-        acceptance: 多账号加载 / 健康 / 冷却状态流转 + pytest
+          - apps/backend/src/opencode_pool/accounts/
+          - apps/backend/tests/test_accounts.py
+          - apps/backend/tests/test_accounts_api.py
+        acceptance: 全部通过——pytest 24 + API 集成 3 passed、ruff 无警告；/api/accounts 端到端实测脱敏正确
       - id: B2
         title: Responses 协议透明转发
-        status: todo
+        status: done
+        date: 2026-08-19
+        prd: docs/prd/PRD-B2-transparent-proxy.md
+        prd_status: 已验收
         modules:
-          - apps/backend/src/proxy/
-        acceptance: SSE 流式 / 工具调用 / usage 原样透传 + fake upstream 测试
+          - apps/backend/src/opencode_pool/proxy/
+          - apps/backend/tests/test_proxy.py
+          - apps/backend/tests/test_proxy_errors.py
+        acceptance: 全部通过——pytest 37 passed、ruff 无警告；非流式/流式透传、失败切换 mark_down、503、脱敏全覆盖
       - id: B3
         title: 额度错误识别与自动切换
-        status: todo
+        status: done
+        date: 2026-08-19
+        prd: docs/prd/PRD-B3-rotation-enhance.md
+        prd_status: 已验收
         modules:
-          - apps/backend/src/rotation/
-        acceptance: 429/额度错误触发切换 + 冷却恢复 + pytest
+          - apps/backend/src/opencode_pool/scheduler.py
+          - apps/backend/tests/test_rotation.py
+        acceptance: 全部通过——pytest 50 passed、ruff 无警告；主动扫描恢复、Retry-After 动态冷却、连续失败阈值禁用、切换历史全覆盖
       - id: B4
         title: 状态持久化（SQLite）
-        status: todo
+        status: done
+        date: 2026-08-19
+        prd: docs/prd/PRD-B4-sqlite-persistence.md
+        prd_status: 已验收
         modules:
-          - apps/backend/src/store/
-        acceptance: 重启不丢账号状态 + pytest
+          - apps/backend/src/opencode_pool/store/
+          - apps/backend/tests/test_sqlite_store.py
+          - apps/backend/tests/test_persistence.py
+        acceptance: 全部通过——pytest 61 passed、ruff 无警告；SQLite 读写/重启恢复/到期恢复/禁用保持/DB 降级全覆盖
   # ---- C 监控台 ----
   - id: C
     name: 监控台
     steps:
       - id: C1
         title: 账号状态大盘
-        status: todo
+        status: done
+        date: 2026-08-20
+        prd: docs/prd/PRD-C1-dashboard-summary.md
+        prd_status: 已验收
         modules:
           - apps/web/src/features/dashboard/
-        acceptance: 账号健康/冷却/额度状态可见 + vitest
+          - apps/web/src/services/api.ts
+          - apps/web/src/types/pool.ts
+        acceptance: 全部通过——vitest 10 passed、lint/build 干净、UI 目检（直角/无阴影/白底/徽章色）
       - id: C2
         title: 用量与轮换趋势图（ECharts）
-        status: todo
+        status: done
+        date: 2026-08-20
+        prd: docs/prd/PRD-C2-usage-charts.md
+        prd_status: 已验收
         modules:
+          - apps/backend/src/opencode_pool/usage/
+          - apps/backend/src/opencode_pool/api/usage.py
           - apps/web/src/features/charts/
-        acceptance: 请求量/Token 用量趋势 + 轮换事件时间线
+          - apps/web/src/services/api.ts
+        acceptance: 全部通过——pytest 70 + vitest 13 passed、build 成功；/api/stats、/api/switch-history 端到端正常、UI 目检全过
+      - id: C3
+        title: 分 Tab 管理与网关鉴权
+        status: done
+        date: 2026-08-20
+        prd: docs/prd/PRD-C3-tabs-gateway-keys.md
+        prd_status: 已验收
+        modules:
+          - apps/backend/src/opencode_pool/auth/
+          - apps/backend/src/opencode_pool/api/keys.py
+          - apps/web/src/components/Sidebar.tsx
+          - apps/web/src/features/usage/
+          - apps/web/src/features/keys/
+        acceptance: 左右分栏双 Tab（用量信息+控制按钮 / API Key 管理）+ 转发端点 Bearer 鉴权 + pytest/vitest/build 全绿
+      - id: C4
+        title: 统一事件日志
+        status: done
+        date: 2026-08-20
+        prd: docs/prd/PRD-C4-unified-events.md
+        prd_status: 已验收
+        modules:
+          - apps/backend/src/opencode_pool/events/
+          - apps/backend/src/opencode_pool/store/
+          - apps/backend/src/opencode_pool/api/events.py
+          - apps/web/src/features/charts/EventTimeline.tsx
+        acceptance: type/data/meta/time 统一事件 + 请求/冷却/切换/全失效事件 + 旧 switch_history 迁移删除 + pytest 105/vitest 21 全绿；生产库迁移与真实转发链路实测通过
+      - id: C5
+        title: 账号额度展示
+        status: done
+        date: 2026-08-20
+        prd: docs/prd/PRD-C5-quota-display.md
+        prd_status: 已验收
+        modules:
+          - apps/backend/src/opencode_pool/quota/
+          - apps/backend/src/opencode_pool/api/quota.py
+          - apps/web/src/features/dashboard/
+          - apps/web/src/services/api.ts
+        acceptance: 每账号滚动/周/月用量（百分比+重置时间）+ 总额度汇总 + TTL 缓存防高频打上游 + pytest 123/vitest 31 全绿；真实 6 账号额度接口与 UI 实测通过
   # ---- G 收尾 ----
   - id: G
     name: 收尾
     steps:
       - id: G1
         title: CI 与完整测试
-        status: todo
+        status: done
+        date: 2026-08-20
+        prd: docs/prd/PRD-G1-ci.md
+        prd_status: 已验收
         modules:
-          - .github/workflows/
+          - .github/workflows/ci.yml
         acceptance: CI 绿（backend pytest/ruff + web eslint/vitest/build）
       - id: G2
         title: 文档与示例
-        status: todo
+        status: done
+        date: 2026-08-20
+        prd: docs/prd/PRD-G2-docs.md
+        prd_status: 已验收
         modules:
           - README.md
+          - apps/backend/README.md
+          - apps/web/README.md
           - docs/usage.md
-        acceptance: 从零启动到代理可用的一页说明
+        acceptance: 四文档齐备（根/后端/前端/使用手册）+ 命令实测可跑 + API 汇总覆盖全部端点

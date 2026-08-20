@@ -1,0 +1,337 @@
+/* C1 账号状态大盘样式：白色简洁风（无阴影、无圆角，见 AGENTS.md §5）。 */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 统计摘要 */
+.summary-cards {
+  display: flex;
+  gap: 16px;
+}
+
+.summary-card {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  padding: 16px 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.summary-card__num {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.summary-card__label {
+  color: var(--color-text-secondary);
+}
+
+/* 账号列表 */
+.account-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.account-card {
+  border: 1px solid var(--color-border);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.account-card--dimmed {
+  opacity: 0.55;
+}
+
+.account-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-card__name {
+  font-weight: 600;
+}
+
+.account-card__id {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  margin-right: auto;
+}
+
+.account-card__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-card__field {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.account-card__value {
+  color: var(--color-text);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.account-card__error {
+  border: 1px solid var(--color-border);
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 状态徽章 */
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+}
+
+.badge-healthy {
+  color: var(--color-ok);
+  border-color: var(--color-ok);
+}
+
+.badge-cooldown {
+  color: var(--color-warn);
+  border-color: var(--color-warn);
+}
+
+.badge-disabled {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* 状态提示 */
+.dashboard-error {
+  border: 1px solid var(--color-warn);
+  padding: 8px 12px;
+  color: var(--color-warn);
+}
+
+.dashboard-empty {
+  color: var(--color-text-secondary);
+  padding: 24px 0;
+}
+
+/* C5 额度摘要 */
+.summary-card--quota {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-card__quota-rows {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border);
+}
+
+.quota-mini {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.quota-mini span:last-child {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* C5 账号额度：进度条为直角细线，不使用阴影 */
+.account-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quota-block {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+}
+
+.quota-row {
+  display: grid;
+  grid-template-columns: 36px minmax(40px, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.quota-row__label {
+  color: var(--color-text-secondary);
+}
+
+.quota-row__bar {
+  min-width: 40px;
+  height: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.quota-row__fill {
+  height: 100%;
+  min-width: 0;
+}
+
+.quota-row__fill--ok {
+  background: var(--color-ok);
+}
+
+.quota-row__fill--warn {
+  background: var(--color-warn);
+}
+
+.quota-row__fill--danger {
+  background: var(--color-danger);
+}
+
+.quota-row__percent {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.quota-row__percent--ok {
+  color: var(--color-ok);
+}
+
+.quota-row__percent--warn {
+  color: var(--color-warn);
+}
+
+.quota-row__percent--danger {
+  color: var(--color-danger);
+}
+
+.quota-row__reset {
+  grid-column: 2 / -1;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.quota-block__unknown {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.card-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-head-row .card-title {
+  margin-bottom: 0;
+}
+
+.quota-note {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .summary-cards {
+    flex-wrap: wrap;
+  }
+
+  .summary-card {
+    min-width: 140px;
+  }
+
+  .quota-row {
+    grid-template-columns: 36px minmax(30px, 1fr) auto;
+  }
+}
+
+/* C4 统一事件时间线 */
+.event-timeline__list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.event-timeline__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+}
+
+.event-timeline__item:last-child {
+  border-bottom: none;
+}
+
+.event-timeline__time {
+  color: var(--color-text-secondary);
+  min-width: 150px;
+  flex-shrink: 0;
+}
+
+.event-timeline__summary {
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 460px;
+}
+
+.event-type {
+  border: 1px solid var(--color-border);
+  padding: 0 6px;
+  font-size: 12px;
+  flex-shrink: 0;
+  color: var(--color-text);
+}
+
+/* 成功/恢复类：绿色 */
+.event-type--request,
+.event-type--key_cooldown_completed,
+.event-type--key_enabled,
+.event-type--key_cooldown_cleared,
+.event-type--gateway_key_created {
+  color: var(--color-ok);
+  border-color: var(--color-ok);
+}
+
+/* 冷却/切换类：橙色 */
+.event-type--key_cooldown_started,
+.event-type--key_switch {
+  color: var(--color-warn);
+  border-color: var(--color-warn);
+}
+
+/* 失败/禁用/全部失效类：红色 */
+.event-type--key_disabled,
+.event-type--all_keys_invalid,
+.event-type--all_keys_unavailable,
+.event-type--gateway_key_revoked {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+\n
