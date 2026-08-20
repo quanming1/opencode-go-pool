@@ -8,9 +8,10 @@
 |---|---|
 | 阶段 | E4 |
 | 名称 | 图表优化 · 更丰富数据展示 |
-| 状态 | 开发中 |
+| 状态 | 已验收 |
 | 创建日期 | 2026-08-21 |
 | 定稿日期 | 2026-08-21 |
+| 验收日期 | 2026-08-21 |
 | 关联文档 | docs/TODO.yaml 阶段 E4；apps/backend/src/opencode_pool/store/sqlite_store.py；apps/backend/src/opencode_pool/api/usage.py；apps/web/src/features/charts/；apps/web/src/types/pool.ts |
 
 ## 1. 背景与目标
@@ -153,3 +154,4 @@
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
 | 2026-08-21 | 实现完成：后端 aggregate_usage 补 success_count/success_rate（totals/per_account/per_model/buckets）+ error_types 分布；新增 store.events_summary（耗时分位 avg/p95/max、协议分布、key_switch 等事件计数，近 500 条，p95 需 ≥2 样本）；/api/stats 经 recorder.stats 合并 summary。前端 StatsResponse 扩容（可选字段容错旧后端）；三图增强（错误系列/成功率线/tooltip 富化）；新增 StatsSummaryCard（运行汇总）+ ProtocolChart（Pie）+ ErrorTypeChart（Bar）+ i18n/样式；StatsSummaryCard 单测 3 项 | 阶段 E4 开发 |
+| 2026-08-21 | 验收通过：pytest 138（新增 3 用例）+ ruff 0；vitest 47（新增 3）+ eslint 0 + build 通过；独立临时实例端到端实测 /api/stats 新字段（totals.success_count/success_rate、error_types、summary.duration/protocol/event_counts 全对，不碰 48700，未重启运行中后端）；playwright 实测前端汇总卡/空态/三图渲染正常（旧后端字段容错，成功率显示 N/A 不误导） | 阶段 E4 完成 |

@@ -224,16 +224,18 @@ stages:
         acceptance: 颜色 token 集中到 src/theme/tokens.ts（light/dark 各 9 色 + chart 派生色板），ECharts 等 JS 侧无硬编码 hex；tokens.test.ts 断言 tokens 与 index.css 的 CSS 变量 18 对完全一致（含负例验证）；vitest 44/eslint 0/build 全绿；playwright 实测 light/dark 主题联动（背景/文字/三张图 canvas）正常；README 同步
       - id: E4
         title: 图表优化 · 更丰富数据展示
-        status: in_progress
+        status: done
         date: 2026-08-21
         prd: docs/prd/PRD-E4-richer-charts.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/backend/src/opencode_pool/store/sqlite_store.py
-          - apps/backend/src/opencode_pool/api/usage.py
+          - apps/backend/src/opencode_pool/usage/recorder.py
           - apps/web/src/features/charts/
+          - apps/web/src/features/usage/
+          - apps/web/src/i18n/messages.ts
           - apps/web/src/types/pool.ts
-        acceptance: /api/stats 扩展成功率/耗时分位/协议分布/错误类型维度（events 派生）；前端三图丰富展示 + 新增汇总卡/协议/错误分布；pytest/vitest/eslint/build 全绿；独立实例实测新字段、不中断运行中 48700 后端
+        acceptance: /api/stats 扩展 success_count/success_rate + error_types + summary（耗时/协议/事件计数，events 派生不改表）；前端三图富化 + 运行汇总卡 + 协议/错误类型新图；pytest 138 + vitest 47 + eslint 0 + build 全绿；独立实例实测新字段、运行中 48700 未重启（前端旧字段容错）
   # ---- G 收尾 ----
   - id: G
     name: 收尾
