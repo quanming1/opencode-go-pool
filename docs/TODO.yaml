@@ -138,9 +138,10 @@ stages:
         acceptance: CI 绿（backend pytest/ruff + web eslint/vitest/build）
       - id: G2
         title: 文档与示例
-        status: in_progress
+        status: done
+        date: 2026-08-20
         prd: docs/prd/PRD-G2-docs.md
-        prd_status: approved
+        prd_status: 已验收
         modules:
           - README.md
           - apps/backend/README.md
