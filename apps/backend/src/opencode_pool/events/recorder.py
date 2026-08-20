@@ -75,12 +75,17 @@ class EventRecorder:
         except Exception:  # noqa: BLE001 - 事件落库失败不拖垮主路径
             logger.warning("[events] 记录 %s 事件失败（降级忽略）", event["type"])
 
-    def query(self, limit: int = 100, types: list[str] | None = None) -> list[dict]:
+    def query(
+        self,
+        limit: int = 100,
+        types: list[str] | None = None,
+        offset: int = 0,
+    ) -> list[dict]:
         """统一事件列表（新→旧）；每项严格含 type/data/meta/time。"""
         if self._store is None:
             return []
         try:
-            rows = self._store.query_events(limit=limit, types=types)
+            rows = self._store.query_events(limit=limit, types=types, offset=offset)
         except Exception:  # noqa: BLE001 - 查询失败降级为空
             logger.warning("[events] 查询事件失败（降级为空）")
             return []
@@ -93,3 +98,13 @@ class EventRecorder:
             }
             for r in rows
         ]
+
+    def count(self, types: list[str] | None = None) -> int:
+        """事件总数（支持 type 白名单），供分页 has_more 判断；失败降级 0。"""
+        if self._store is None:
+            return 0
+        try:
+            return int(self._store.count_events(types=types))
+        except Exception:  # noqa: BLE001 - 统计失败降级 0
+            logger.warning("[events] 统计事件数失败（降级 0）")
+            return 0

@@ -83,6 +83,11 @@ def create_app(config_path: str | None = None) -> FastAPI:
     )
     app.state.key_manager = key_manager
 
+    # D1：日志概览（当前活跃 Key + 速率 + 剩余时长推测；复用 store 与事件记录器）
+    from opencode_pool.logs.overview import LogsOverview
+
+    app.state.logs_overview = LogsOverview(store, event_recorder)
+
     # 代理转发器（B2：多账号外层 + 透明转发；C2：记录用量；C4：记录统一事件）
     app.state.forwarder = Forwarder(
         pool=pool,
@@ -102,6 +107,9 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
     app.include_router(events_router)
     app.include_router(quota_router)
+    from opencode_pool.api.logs import router as logs_router
+
+    app.include_router(logs_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

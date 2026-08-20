@@ -80,3 +80,29 @@ def test_unwritable_path_degrades(tmp_path):
     store.save_state(_account())
     assert store.load_accounts_state() == {}
     store.close()
+
+
+def test_query_events_offset_and_count(tmp_path):
+    """D1：query_events 支持 offset；count_events 返回总数（含 type 筛选）。"""
+    db = tmp_path / "pagination.db"
+    store = AccountStore(str(db))
+    for i in range(5):
+        store.save_event("request", f"t{i}", f'{{"i":{i}}}', "{}")
+
+    assert store.count_events() == 5
+    assert store.count_events(types=["request"]) == 5
+    assert store.count_events(types=["key_switch"]) == 0
+
+    page1 = store.query_events(limit=2, offset=0)
+    page2 = store.query_events(limit=2, offset=2)
+    page3 = store.query_events(limit=2, offset=4)
+    assert [r["data"]["i"] for r in page1] == [4, 3]
+    assert [r["data"]["i"] for r in page2] == [2, 1]
+    assert [r["data"]["i"] for r in page3] == [0]
+    assert len(page1) + len(page2) + len(page3) == 5
+
+    # offset 越界返回空，不抛
+    assert store.query_events(limit=2, offset=99) == []
+    # 负数 offset 视为 0
+    assert len(store.query_events(limit=2, offset=-5)) == 2
+    store.close()
