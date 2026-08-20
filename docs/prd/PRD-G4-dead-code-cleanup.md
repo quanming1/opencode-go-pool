@@ -8,7 +8,7 @@
 |---|---|
 | 阶段 | G4 |
 | 名称 | 代码优化 · 去除冗余代码 |
-| 状态 | approved |
+| 状态 | 开发中 |
 | 创建日期 | 2026-08-21 |
 | 定稿日期 | 2026-08-21 |
 | 关联文档 | docs/TODO.yaml 阶段 G4；apps/backend/src/opencode_pool/accounts/pool.py；apps/backend/src/opencode_pool/store/sqlite_store.py；apps/backend/src/opencode_pool/logging_setup.py；apps/web/src/i18n/messages.ts；apps/web/src/index.css |
@@ -80,3 +80,4 @@
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
+| 2026-08-21 | 实现完成：后端 pool.py 删 describe_key 与「日志用脱敏」注释块、import 移除 mask_api_key；sqlite_store.py 删 has_any_gateway_key；删除 logging_setup.py 模块（setup_logging 无消费者）。前端 messages.ts 删 chart.tooltip.success（zh/en，E4 孤儿 key）；index.css 删 .card-text 死类 | 阶段 G4 开发 |

@@ -83,7 +83,6 @@ export const messages = {
     "chart.empty.accounts": "暂无账号请求数据",
     "chart.empty.protocol": "暂无协议数据",
     "chart.empty.errorTypes": "暂无错误数据",
-    "chart.tooltip.success":"成功 {s}",
     // 运行汇总（E4）
     "stats.title": "运行汇总",
     "stats.requests": "总请求",
@@ -246,7 +245,6 @@ export const messages = {
     "chart.empty.accounts": "No account request data",
     "chart.empty.protocol": "No protocol data",
     "chart.empty.errorTypes": "No error data",
-    "chart.tooltip.success": "ok {s}",
     // Runtime summary（E4）
     "stats.title": "Runtime summary",
     "stats.requests": "Requests",

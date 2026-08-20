@@ -102,10 +102,6 @@ body {
   margin-bottom: 8px;
 }
 
-.card-text {
-  color: var(--color-text-secondary);
-}
-
 /* 图表容器 */
 .chart-box {
   width: 100%;
