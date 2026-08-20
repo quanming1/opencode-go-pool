@@ -8,8 +8,8 @@ FastAPI 代理核心：账号池管理、Responses 协议透明转发、额度�
 |---|---|---|
 | accounts | `src/opencode_pool/accounts/` | 账号数据模型、配置加载（YAML/JSON + `${ENV_VAR}` 引用）、账号池状态机（healthy/cooldown/disabled、连续失败阈值、切换历史） |
 | proxy | `src/opencode_pool/proxy/` | Responses 透明转发（非流式 JSON / 流式 SSE）、错误分类（quota/auth/bad_request/server/network）、失败切换与 Retry-After 动态冷却 |
-| usage | `src/opencode_pool/usage/` | 转发用量记录（请求数/token）、统计聚合、切换历史查询（中文语义标签） |
-| store | `src/opencode_pool/store/` | SQLite 持久化：账号运行时状态、切换历史、用量事件（DB 不可写自动降级纯内存） |
+| quota | `src/opencode_pool/quota/` | OpenCode Go 官方 `/usage` 额度查询（并发 + TTL 缓存 + 单账号降级） |
+| store | `src/opencode_pool/store/` | SQLite 持久化：账号运行时状态、统一事件、用量事件、网关 key（DB 不可写自动降级纯内存） |
 | scheduler | `src/opencode_pool/scheduler.py` | 后台冷却扫描（周期恢复到期账号，随应用 lifespan 启停） |
 | api | `src/opencode_pool/api/` | HTTP 路由：`/api/accounts`（脱敏视图）、`/api/stats`、`/api/events` |
 | config | `src/opencode_pool/config.py` | pydantic-settings 配置（env + .env，严格模式拒绝未知字段） |
@@ -41,6 +41,7 @@ ruff check src tests
   - `events`：统一事件日志（type/data/meta/time，最近 5000 条；C4 启动时自动迁移旧 `switch_history` 后删除该表）；
   - `usage_events`：转发用量事件（最近 2000 条，含 success/error 分类与 token 数，统计投影）；
   - `gateway_keys`：网关访问 key（SHA-256 哈希 + label + 吊销时间）。
+- 额度不持久化：由 `quota` 服务按 TTL 从官方 `/usage` 接口读取，查询失败只显示未知，不影响转发。
 - DB 不可写（路径只读等）时服务可启动，退化为纯内存（日志有警告）。
 
 ## 账号配置

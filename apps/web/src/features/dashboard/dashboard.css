@@ -127,6 +127,145 @@
   padding: 24px 0;
 }
 
+/* C5 额度摘要 */
+.summary-card--quota {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-card__quota-rows {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border);
+}
+
+.quota-mini {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.quota-mini span:last-child {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* C5 账号额度：进度条为直角细线，不使用阴影 */
+.account-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quota-block {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 8px;
+}
+
+.quota-row {
+  display: grid;
+  grid-template-columns: 36px minmax(40px, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.quota-row__label {
+  color: var(--color-text-secondary);
+}
+
+.quota-row__bar {
+  min-width: 40px;
+  height: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.quota-row__fill {
+  height: 100%;
+  min-width: 0;
+}
+
+.quota-row__fill--ok {
+  background: var(--color-ok);
+}
+
+.quota-row__fill--warn {
+  background: var(--color-warn);
+}
+
+.quota-row__fill--danger {
+  background: var(--color-danger);
+}
+
+.quota-row__percent {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.quota-row__percent--ok {
+  color: var(--color-ok);
+}
+
+.quota-row__percent--warn {
+  color: var(--color-warn);
+}
+
+.quota-row__percent--danger {
+  color: var(--color-danger);
+}
+
+.quota-row__reset {
+  grid-column: 2 / -1;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.quota-block__unknown {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.card-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-head-row .card-title {
+  margin-bottom: 0;
+}
+
+.quota-note {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .summary-cards {
+    flex-wrap: wrap;
+  }
+
+  .summary-card {
+    min-width: 140px;
+  }
+
+  .quota-row {
+    grid-template-columns: 36px minmax(30px, 1fr) auto;
+  }
+}
+
 /* C4 统一事件时间线 */
 .event-timeline__list {
   list-style: none;
@@ -166,7 +305,7 @@
   padding: 0 6px;
   font-size: 12px;
   flex-shrink: 0;
-  color: var(--color-text-primary);
+  color: var(--color-text);
 }
 
 /* 成功/恢复类：绿色 */
@@ -194,3 +333,5 @@
   color: var(--color-danger);
   border-color: var(--color-danger);
 }
+
+\n

@@ -7,6 +7,7 @@ import type {
   EventsResponse,
   GatewayKey,
   PoolAccount,
+  QuotaResponse,
   StatsResponse,
 } from "../types/pool";
 
@@ -45,6 +46,14 @@ export async function fetchEvents(limit = 100, type = ""): Promise<EventItem[]> 
   const query = type ? `&type=${encodeURIComponent(type)}` : "";
   const data = await fetchJson<EventsResponse>(`/api/events?limit=${limit}${query}`);
   return data.events;
+}
+
+// ---- C5：额度 ----
+
+/** 拉取账号额度（force=true 强制绕过服务端缓存重新查询上游）。 */
+export async function fetchQuota(force = false): Promise<QuotaResponse> {
+  const query = force ? "?refresh=1" : "";
+  return fetchJson<QuotaResponse>(`/api/quota${query}`);
 }
 
 // ---- C3：账号控制 ----

@@ -59,6 +59,41 @@ export interface EventsResponse {
   events: EventItem[];
 }
 
+// ---- C5：额度 ----
+
+/** 单窗口额度（rolling/weekly/monthly）。 */
+export interface QuotaWindow {
+  status: string;
+  percent: number;
+  resets_at: string | null;
+  resets_in_seconds: number | null;
+}
+
+export interface AccountQuota {
+  account_id: string;
+  quota: { rolling: QuotaWindow; weekly: QuotaWindow; monthly: QuotaWindow } | null;
+  error: string | null;
+}
+
+export interface QuotaSummary {
+  total_accounts: number;
+  queried: number;
+  ok_accounts: number;
+  rolling_available: number;
+  rolling_avg_percent: number;
+  weekly_avg_percent: number;
+  monthly_avg_percent: number;
+  allocated_usd: { rolling: number; weekly: number; monthly: number };
+  estimated_used_usd: { rolling: number; weekly: number; monthly: number };
+}
+
+export interface QuotaResponse {
+  accounts: AccountQuota[];
+  summary: QuotaSummary;
+  fetched_at: string;
+  cached: boolean;
+}
+
 export interface GatewayKey {
   id: number;
   label: string;

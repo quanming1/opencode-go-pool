@@ -62,9 +62,8 @@ curl http://127.0.0.1:48700/api/accounts
 
 | 端点 | 方法 | 说明 |
 |---|---|---|
-| `/health` | GET | 健康检查（状态 + 版本） |
-| `/api/accounts` | GET | 账号池脱敏视图（状态/冷却剩余/失败计数，无密钥） |
 | `/api/stats?hours=24` | GET | 用量聚合（按小时桶 + 按账号汇总） |
+| `/api/quota?refresh=0\|1` | GET | OpenCode Go 每账号滚动/周/月额度 + 全池汇总（服务端 TTL 缓存） |
 | `/api/events?limit=100&type=request,key_switch` | GET | 统一事件日志（type/data/meta/time；type 逗号分隔筛选） |
 | `/api/v1/responses` | POST | OpenAI Responses 透明转发（支持流式 SSE） |
 | `/api/v1/chat/completions` | POST | OpenAI Chat Completions 透明转发（支持流式 SSE） |
@@ -88,11 +87,9 @@ curl http://127.0.0.1:48700/api/v1/responses \
 | `HOST` | 127.0.0.1 | 监听地址 |
 | `PORT` | 48700 | 监听端口 |
 | `UPSTREAM_BASE_URL` | https://api.opencode.ai/v1 | 上游默认地址（账号可覆盖） |
-| `UPSTREAM_TIMEOUT` | 60 | 上游超时（秒） |
-| `POOL_SCAN_INTERVAL_SECONDS` | 60 | 冷却自动扫描间隔 |
-| `MAX_CONSECUTIVE_FAILURES` | 3 | 连续失败自动禁用阈值 |
 | `DB_PATH` | data/opencode_pool.db | SQLite 持久化路径 |
-
+| `QUOTA_CACHE_TTL_SECONDS` | 60 | 额度查询缓存秒数（缓存期内不重复访问上游） |
+| `QUOTA_TIMEOUT_SECONDS` | 10 | 单账号额度查询超时（秒） |
 账号配置见 `apps/backend/config/accounts.example.yaml`（api_key 用 `${ENV_VAR}` 引用环境变量）。
 
 ## 目录结构
@@ -100,11 +97,9 @@ curl http://127.0.0.1:48700/api/v1/responses \
 ```
 opencode-go-pool/
 ├─ apps/
-│  ├─ backend/     FastAPI 代理核心（accounts / proxy / usage / store / scheduler）
-│  └─ web/         React + Vite + ECharts 监控台（白色简洁风）
-├─ docs/           TODO.yaml / PROCESS.md / prd/ / usage.md
-└─ .githooks/      提交与推送校验（本地强制）
-```
+├─ apps/
+│  ├─ backend/     FastAPI 代理核心（accounts / proxy / usage / quota / store / scheduler）
+│  └─ web/         React + Vite + ECharts 监控台（账号状态 / 额度 / 用量 / 事件）
 
 ## 开发规范（Rondo 方法）
 
