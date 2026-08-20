@@ -162,3 +162,4 @@ apps/web/src/features/charts/
 |---|---|---|
 | 2026-08-20 | 初始定稿 | — |
 | 2026-08-20 | 验收通过：pytest 70 passed、vitest 13 passed、build 成功；/api/stats、/api/switch-history 端到端正常；UI 目检直角/无阴影/白底/图表 canvas 渲染 | 阶段 C2 完成 |
+| 2026-08-20 | FR5 图表布局修正：legend 显式置顶（top:8）、柱状图加 barMaxWidth:48、grid.top 提至 56；空数据时不渲染空坐标系（显示占位文案） | 单数据点时柱子占满全宽、图例与 X 轴标签重叠（截图反馈） |

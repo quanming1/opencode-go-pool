@@ -33,7 +33,11 @@ export function Dashboard() {
 
       <section className="card">
         <h2 className="card-title">用量趋势（近24h）</h2>
-        {stats ? <UsageCharts stats={stats} /> : <p className="dashboard-empty">暂无用量数据</p>}
+        {stats && stats.buckets.length > 0 ? (
+          <UsageCharts stats={stats} />
+        ) : (
+          <p className="dashboard-empty">暂无用量数据</p>
+        )}
       </section>
 
       <section className="card">

@@ -39,3 +39,4 @@ Thumbs.db
 # 调试产物
 *.log
 .tmp/
+.ftre/
