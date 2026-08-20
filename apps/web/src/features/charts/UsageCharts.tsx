@@ -32,8 +32,9 @@ export function UsageCharts({ stats }: { stats: StatsResponse }) {
     const chart = echarts.init(el);
     chart.setOption({
       tooltip: { trigger: "axis" },
-      legend: { data: ["请求量", "Token"] },
-      grid: { left: 56, right: 56, top: 32, bottom: 32 },
+      // 图例显式置顶，避免与 X 轴标签重叠（截图反馈的布局 bug）
+      legend: { data: ["请求量", "Token"], top: 8 },
+      grid: { left: 56, right: 56, top: 56, bottom: 32 },
       xAxis: {
         type: "category",
         data: stats.buckets.map((b) => b.ts.slice(11, 16)),
@@ -46,6 +47,8 @@ export function UsageCharts({ stats }: { stats: StatsResponse }) {
         {
           name: "请求量",
           type: "bar",
+          // 单数据点时限制柱宽，避免占满整个绘图区
+          barMaxWidth: 48,
           data: stats.buckets.map((b) => b.request_count),
           itemStyle: { color: "#2563eb" },
         },
