@@ -136,6 +136,17 @@ stages:
           - apps/web/src/features/usage/
           - apps/web/src/features/keys/
         acceptance: 左右分栏双 Tab（用量信息+控制按钮 / API Key 管理）+ 转发端点 Bearer 鉴权 + pytest/vitest/build 全绿
+      - id: C4
+        title: 统一事件日志
+        status: in_progress
+        prd: docs/prd/PRD-C4-unified-events.md
+        prd_status: approved
+        modules:
+          - apps/backend/src/opencode_pool/events/
+          - apps/backend/src/opencode_pool/store/
+          - apps/backend/src/opencode_pool/api/events.py
+          - apps/web/src/features/charts/SwitchTimeline.tsx
+        acceptance: type/data/meta/time 统一事件 + 请求/冷却/切换/全失效事件 + 旧 switch_history 迁移删除 + pytest/vitest 全绿
   # ---- G 收尾 ----
   - id: G
     name: 收尾
