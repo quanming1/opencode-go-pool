@@ -143,3 +143,4 @@ pool.pick_next() -> Account | None                    # 首个 healthy 且 enabl
 |---|---|---|
 | 2026-08-19 | 初始定稿 | — |
 | 2026-08-19 | 验收通过：pytest 24 passed + API 集成 3 passed + ruff 无警告；/api/accounts 端到端实测脱敏视图正确、无密钥泄露 | 阶段 B1 完成 |
+| 2026-08-20 | FR1 细化修正：api_key 的 ${VAR} 引用解析顺序 = 进程环境变量 > .env 文件（KEY=VALUE）；显式传 env（测试注入）不读 .env | usage.md 声称密钥可写 .env 但 loader 只读进程环境变量——文档与行为不一致，修代码对齐文档 |

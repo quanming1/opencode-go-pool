@@ -89,6 +89,72 @@ def test_load_json_supported(tmp_path):
     assert load_accounts(cfg, env={})[0].api_key == "sk-j"
 
 
+# ---- .env 文件支持 ----
+
+def test_load_key_from_env_file(tmp_path, monkeypatch):
+    """api_key 引用的变量可来自 .env 文件（无需进程环境变量）。"""
+    monkeypatch.delenv("OPENCODE_GO_KEY_1", raising=False)
+    cfg = tmp_path / "accounts.yaml"
+    cfg.write_text(
+        "accounts:\n  - id: a1\n    name: One\n    api_key: ${OPENCODE_GO_KEY_1}\n",
+        encoding="utf-8",
+    )
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "# 密钥\nOPENCODE_GO_KEY_1=sk-from-dotenv\n",
+        encoding="utf-8",
+    )
+    accounts = load_accounts(cfg, env_file=env_file)
+    assert accounts[0].api_key == "sk-from-dotenv"
+
+
+def test_process_env_overrides_dotenv(tmp_path, monkeypatch):
+    """进程环境变量优先于 .env 文件（.env 是默认值）。"""
+    monkeypatch.setenv("OPENCODE_GO_KEY_1", "sk-from-process")
+    cfg = tmp_path / "accounts.yaml"
+    cfg.write_text(
+        "accounts:\n  - id: a1\n    name: One\n    api_key: ${OPENCODE_GO_KEY_1}\n",
+        encoding="utf-8",
+    )
+    env_file = tmp_path / ".env"
+    env_file.write_text("OPENCODE_GO_KEY_1=sk-from-dotenv\n", encoding="utf-8")
+    accounts = load_accounts(cfg, env_file=env_file)
+    assert accounts[0].api_key == "sk-from-process"
+
+
+def test_explicit_env_skips_dotenv(tmp_path):
+    """显式传 env（测试注入）时不读 .env——保持确定性。"""
+    cfg = tmp_path / "accounts.yaml"
+    cfg.write_text(
+        "accounts:\n  - id: a1\n    name: One\n    api_key: ${OPENCODE_GO_KEY_1}\n",
+        encoding="utf-8",
+    )
+    env_file = tmp_path / ".env"
+    env_file.write_text("OPENCODE_GO_KEY_1=sk-from-dotenv\n", encoding="utf-8")
+    # 显式 env（空）→ 引用缺失 → 跳过该账号
+    accounts = load_accounts(cfg, env={}, env_file=env_file)
+    assert accounts == []
+
+
+def test_env_file_quotes_and_comments(tmp_path):
+    """.env 解析：引号去除、注释与空行忽略。"""
+    from opencode_pool.accounts.loader import _parse_env_file
+
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n# comment\nA=plain\nB='quoted'\nC=\"dq\"\nBAD LINE\nD=\n",
+        encoding="utf-8",
+    )
+    parsed = _parse_env_file(env_file)
+    assert parsed == {"A": "plain", "B": "quoted", "C": "dq", "D": ""}
+
+
+def test_missing_env_file_is_noop(tmp_path):
+    from opencode_pool.accounts.loader import _parse_env_file
+
+    assert _parse_env_file(tmp_path / "nope.env") == {}
+
+
 # ---- 状态机 ----
 
 def test_initial_status_healthy():
