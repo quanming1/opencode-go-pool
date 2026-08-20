@@ -125,9 +125,10 @@ stages:
         acceptance: 全部通过——pytest 70 + vitest 13 passed、build 成功；/api/stats、/api/switch-history 端到端正常、UI 目检全过
       - id: C3
         title: 分 Tab 管理与网关鉴权
-        status: in_progress
+        status: done
+        date: 2026-08-20
         prd: docs/prd/PRD-C3-tabs-gateway-keys.md
-        prd_status: approved
+        prd_status: 已验收
         modules:
           - apps/backend/src/opencode_pool/auth/
           - apps/backend/src/opencode_pool/api/keys.py
