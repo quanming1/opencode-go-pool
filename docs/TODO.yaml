@@ -102,10 +102,14 @@ stages:
     steps:
       - id: C1
         title: 账号状态大盘
-        status: todo
+        status: in_progress
+        prd: docs/prd/PRD-C1-dashboard-summary.md
+        prd_status: approved
         modules:
           - apps/web/src/features/dashboard/
-        acceptance: 账号健康/冷却/额度状态可见 + vitest
+          - apps/web/src/services/api.ts
+          - apps/web/src/types/pool.ts
+        acceptance: 账号卡片/状态徽章/统计摘要/轮询 + vitest/build/UI 目检
       - id: C2
         title: 用量与轮换趋势图（ECharts）
         status: todo
