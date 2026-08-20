@@ -47,4 +47,21 @@ class UsageRecorder:
             logger.warning("[usage] 记录用量失败（忽略）")
 
     def stats(self, hours: int = 24) -> dict:
-        return self._store.aggregate_usage(hours=hours)
+        data = self._store.aggregate_usage(hours=hours)
+        # E4：合并事件派生聚合（耗时/协议分布/状态事件计数）；失败降级为默认结构
+        try:
+            data["summary"] = self._store.events_summary()
+        except Exception:  # noqa: BLE001 - 补充维度失败不拖垮统计
+            data["summary"] = {
+                "window": 500,
+                "duration_ms": {"avg": None, "p95": None, "max": None},
+                "protocol": [],
+                "event_counts": {
+                    "key_switch": 0,
+                    "key_cooldown_started": 0,
+                    "key_disabled": 0,
+                    "all_keys_unavailable": 0,
+                    "all_keys_invalid": 0,
+                },
+            }
+        return data

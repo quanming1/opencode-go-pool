@@ -23,6 +23,9 @@ export interface UsageTotals {
   prompt_tokens: number;
   completion_tokens: number;
   error_count: number;
+  /** E4：成功响应数 / 上游尝试级成功率（旧后端/旧库可能缺失，前端按 0 兜底）。 */
+  success_count?: number;
+  success_rate?: number;
 }
 
 export interface UsageBucket {
@@ -31,6 +34,8 @@ export interface UsageBucket {
   prompt_tokens: number;
   completion_tokens: number;
   error_count: number;
+  /** E4：成功响应数（可选，兼容旧数据）。 */
+  success_count?: number;
 }
 
 export interface PerAccountUsage {
@@ -39,6 +44,8 @@ export interface PerAccountUsage {
   prompt_tokens: number;
   completion_tokens: number;
   error_count: number;
+  /** E4：成功响应数（可选，兼容旧数据）。 */
+  success_count?: number;
 }
 
 /** D1：按账号 × 模型聚合（某 Key 收到多少次请求、分别什么模型）。 */
@@ -49,6 +56,44 @@ export interface PerAccountModelUsage {
   prompt_tokens: number;
   completion_tokens: number;
   error_count: number;
+  /** E4：成功响应数（可选，兼容旧数据）。 */
+  success_count?: number;
+}
+
+/** E4：错误类型分布（usage_events 的 error_type 分组计数）。 */
+export interface ErrorTypeCount {
+  type: string;
+  count: number;
+}
+
+/** E4：request 事件耗时汇总（近 N 条事件，p95 样本 <2 时为 null）。 */
+export interface DurationStats {
+  avg: number | null;
+  p95: number | null;
+  max: number | null;
+}
+
+/** E4：协议分布（responses / chat_completions 等）。 */
+export interface ProtocolCount {
+  name: string;
+  count: number;
+}
+
+/** E4：近期状态类事件计数（键与后端 EventType 一致）。 */
+export interface EventCounts {
+  key_switch: number;
+  key_cooldown_started: number;
+  key_disabled: number;
+  all_keys_unavailable: number;
+  all_keys_invalid: number;
+}
+
+/** E4：events 派生聚合（耗时/协议分布/事件计数；旧后端可能缺失）。 */
+export interface StatsSummary {
+  window: number;
+  duration_ms: DurationStats;
+  protocol: ProtocolCount[];
+  event_counts: EventCounts;
 }
 
 export interface StatsResponse {
@@ -57,6 +102,10 @@ export interface StatsResponse {
   per_account: PerAccountUsage[];
   per_account_models: PerAccountModelUsage[];
   buckets: UsageBucket[];
+  /** E4：错误类型分布（可选，兼容旧后端）。 */
+  error_types?: ErrorTypeCount[];
+  /** E4：事件派生汇总（可选，兼容旧后端）。 */
+  summary?: StatsSummary;
 }
 
 export interface EventItem {
