@@ -210,6 +210,18 @@ stages:
           - apps/web/src/components/
           - apps/web/src/App.tsx
         acceptance: 自研轻量 i18n（zh/en 字典 + context，不新增依赖）；header 语言切换控件 + localStorage 持久化；CSS 变量双主题（:root 浅色 + [data-theme=dark] 深色）全站随动 + ECharts 动态取色；playwright 断言切 en 后关键文案英文、切 dark 后 html[data-theme] 与背景变量正确；vitest/eslint/build 全绿
+      - id: E3
+        title: 主题切换 · 颜色 token 化
+        status: in_progress
+        date: 2026-08-21
+        prd: docs/prd/PRD-E3-color-tokens.md
+        prd_status: 草稿
+        modules:
+          - apps/web/src/theme/tokens.ts
+          - apps/web/src/i18n/index.tsx
+          - apps/web/src/features/charts/
+          - apps/web/src/index.css
+        acceptance: 颜色 token 集中到 src/theme/tokens.ts（light/dark 各 9 色 + chart 派生色板），ECharts 等 JS 侧无硬编码 hex；单测断言 tokens 与 index.css 的 CSS 变量值完全一致（防双源漂移）；vitest/eslint/build 全绿；playwright 实测 light/dark 主题联动（含图表）
   # ---- G 收尾 ----
   - id: G
     name: 收尾
