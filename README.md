@@ -24,6 +24,17 @@
 
 ## 快速开始
 
+### 一键启动（推荐）
+
+首次完成下方手动安装步骤（后端 .venv + 前端 pnpm install）后，日常开发只需：
+
+```bash
+python start.py
+```
+
+自动清理 48700/48701 端口旧进程（含 uvicorn --reload 的孤儿子进程）→ 静默启动前后端 → 健康检查。
+日志写 `logs/backend.log` 与 `logs/web.log`（已 gitignore）；再次运行即重启。
+
 ### 1. 后端（Python 3.12）
 
 ```bash

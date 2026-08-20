@@ -7,6 +7,7 @@
 ### Added
 
 - C5 账号额度展示：基于官方 `/zen/go/v1/usage` 的每账号滚动/每周/每月用量与重置倒计时；服务端 60s TTL 缓存（Lock 防击穿）、单账号失败降级、?refresh=1 强制刷新；额度总览卡展示多账号总分配额度（$12/$30/$60 × N）与按百分比折算的估算已用美元；配置 QUOTA_CACHE_TTL_SECONDS / QUOTA_TIMEOUT_SECONDS（pytest 123 + vitest 31 passed；真实 6 账号接口与 UI 实测通过）
+- start.py 一键启动脚本：清理 48700/48701 端口占用（含 uvicorn --reload 孤儿子进程的双保险清理：按端口杀树 + 按命令行兜底）→ 静默（detached）启动前后端 → 健康检查；日志写 logs/（幂等，重复运行即重启）
 - A1 仓库骨架 + Rondo 规范落地（AGENTS.md / TODO.yaml / PROCESS.md / PRD 模板 / githooks）
 - A2 后端 FastAPI 骨架（应用工厂 / pydantic-settings 配置 / /health / pytest 5 passed）
 - A3 前端 React+Vite+ECharts 骨架（白色简洁 UI 无阴影无圆角 / 示例折线图 / vitest 2 passed）

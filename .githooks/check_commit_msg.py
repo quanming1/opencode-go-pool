@@ -28,7 +28,7 @@ PRD_DIR = "docs/prd"
 # 其他 type 允许的模块 scope（按项目模块定制）
 MODULE_SCOPES = (
     "backend", "web", "accounts", "proxy", "rotation", "store",
-    "dashboard", "charts", "docs", "tests", "release",
+    "dashboard", "charts", "docs", "tests", "release", "scripts",
 )
 # prd / todos 专用分支名
 PRD_BRANCH = "prd-update"
