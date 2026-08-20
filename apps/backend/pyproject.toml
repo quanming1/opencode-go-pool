@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "opencode-pool"
-version = "0.1.0"
+version = "0.2.0"
 description = "OpenCode Go 多账号合并代理后端（账号池 / 路由 / 切换）"
 readme = "README.md"
 requires-python = ">=3.12"
