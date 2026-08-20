@@ -2,6 +2,17 @@
 
 本项目按 Rondo 方法推进：阶段收尾三联动（PRD 已验收 + TODO done + CHANGELOG 追加）。
 
+## [0.3.0] - 2026-08-20
+
+### Added
+
+- D1 日志系统升级：请求日志记录模型与双协议 token（Chat Completions `prompt_tokens`/`completion_tokens` 与 Responses `input_tokens`/`output_tokens` 各自字段名，显式双协议用例锁定）；`/api/stats` 新增按账号×模型聚合（`per_account_models`，某 Key 收到多少次请求、分别什么模型与 token/错误）；`/api/logs/overview` 运行时概览（当前活跃 Key = 最近成功请求账号、近 60 分钟请求/token 速率、按滚动额度百分比+本地速率推算的剩余时长）；`/api/events` 支持 `offset` 分页（返回 has_more）；前端事件时间线自包含分页（20 条/页 + 字段详情展开 + 首帧自动刷新）、新增运行概览卡与「模型请求分布」「账号负载」两张 ECharts 图（pytest 135 + vitest 33 passed；独立端口端到端实测通过，全程未重启运行中的网关）
+
+### Changed
+
+- 优化用量信息摘要区：将账号状态与额度总览合并为单一面板，状态统计与额度信息同区展示；额度总览使用滚动/每周/每月三条总额度进度条。
+- 开源准备：仓库公开（PUBLIC）、英文 README（中文迁移 README.zh-CN.md）、MIT License、SECURITY/CONTRIBUTING、安全审查报告（已追踪文件 + 全历史 blob + 已知 key 指纹 0 泄露、.gitignore 收窄 logs/ 为根目录避免误伤 Python 包）。
+
 ## [0.2.0] - 2026-08-20
 
 首个可发布版本：OpenCode Go 多账号合并代理（账号池轮换 + 透明转发 + 持久化）+ React 监控台（大盘 / 用量 / 额度 / 事件）+ CI + 文档。

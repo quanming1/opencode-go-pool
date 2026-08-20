@@ -6,29 +6,106 @@
   gap: 16px;
 }
 
-/* 统计摘要 */
+/* 统计摘要：额度与账号状态共用一个面板。 */
 .summary-cards {
-  display: flex;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
 }
 
 .summary-card {
-  flex: 1;
+  min-width: 0;
   border: 1px solid var(--color-border);
-  padding: 16px 20px;
+  padding: 18px 20px;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+}
+
+.summary-card--status-only .summary-card__status {
+  border-left: none;
+  padding-left: 0;
 }
 
 .summary-card__num {
   font-size: 28px;
   font-weight: 600;
+  line-height: 1.1;
 }
 
 .summary-card__label {
   color: var(--color-text-secondary);
 }
+
+.summary-card__status {
+  min-width: 290px;
+  padding-left: 24px;
+  border-left: 1px solid var(--color-border);
+}
+
+.summary-card__status-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.summary-card__status-title {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.summary-card__status-caption,
+.summary-card__quota-caption {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.summary-status__items {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  border: 1px solid var(--color-border);
+}
+
+.summary-status__item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border-right: 1px solid var(--color-border);
+}
+
+.summary-status__item:last-child {
+  border-right: none;
+}
+
+.summary-status__num {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.summary-status__label {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.summary-status__item--available .summary-status__num {
+  color: var(--color-ok);
+}
+
+.summary-status__item--cooldown .summary-status__num {
+  color: var(--color-warn);
+}
+
+.summary-status__item--disabled .summary-status__num {
+  color: var(--color-danger);
+}
+
 
 /* 账号列表 */
 .account-list {
@@ -127,33 +204,109 @@
   padding: 24px 0;
 }
 
-/* C5 额度摘要 */
+/* C5 额度摘要：用三条总额进度条取代原来的小型文字列表。 */
 .summary-card--quota {
-  align-items: flex-start;
+  min-height: 190px;
   flex-direction: column;
-  gap: 4px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
 }
+
+.summary-card__quota-head {
+  display: grid;
+  grid-template-columns: minmax(180px, auto) minmax(290px, 1fr) minmax(240px, auto);
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.summary-card__quota-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 180px;
+}
+
+.summary-card__quota-title .summary-card__num {
+  font-size: 32px;
+}
+
+.summary-card__quota-title .summary-card__label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.summary-card__quota-averages {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(70px, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.summary-card__quota-average {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.summary-card__quota-average strong {
+  color: var(--color-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
 
 .summary-card__quota-rows {
   width: 100%;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding-top: 4px;
-  border-top: 1px solid var(--color-border);
-}
-
-.quota-mini {
   display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.quota-mini span:last-child {
+.summary-card--quota .quota-row--summary {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+
+.quota-row__head,
+.quota-row__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quota-row--summary .quota-row__label {
   color: var(--color-text);
+  font-size: 12px;
   font-weight: 600;
+}
+
+.quota-row__amount {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.quota-row__meta {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+
+.quota-row__meta span:last-child {
+  white-space: nowrap;
 }
 
 /* C5 账号额度：进度条为直角细线，不使用阴影 */
@@ -252,13 +405,35 @@
   margin-top: 8px;
 }
 
-@media (max-width: 720px) {
-  .summary-cards {
-    flex-wrap: wrap;
+@media (max-width: 900px) {
+  .summary-card__quota-head {
+    grid-template-columns: minmax(180px, auto) minmax(0, 1fr);
   }
 
-  .summary-card {
-    min-width: 140px;
+  .summary-card__status {
+    grid-column: 1 / -1;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+    padding: 12px 0 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .summary-card__quota-head {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .summary-card__status {
+    border-top: 1px solid var(--color-border);
+    padding-top: 12px;
+  }
+
+  .summary-card__quota-averages {
+    width: 100%;
+    min-width: 0;
   }
 
   .quota-row {
@@ -266,8 +441,7 @@
   }
 }
 
-/* C4 统一事件时间线 */
-.event-timeline__list {
+/* C4 统一事件时间线 */.event-timeline__list {
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -332,6 +506,94 @@
 .event-type--gateway_key_revoked {
   color: var(--color-danger);
   border-color: var(--color-danger);
+}
+
+/* D1：事件时间线结构化布局 —— time/徽章/摘要 同行，字段详情可展开 */
+.event-timeline__item {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.event-timeline__detail {
+  width: 100%;
+  color: var(--color-text-secondary);
+}
+
+.event-timeline__detail summary {
+  cursor: pointer;
+  font-size: 11px;
+  user-select: none;
+}
+
+.event-timeline__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 2px 16px;
+  margin: 6px 0 2px;
+  font-size: 11px;
+}
+
+.event-timeline__field {
+  display: flex;
+  gap: 8px;
+}
+
+.event-timeline__field dt {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.event-timeline__field dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-timeline__pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.event-timeline__page {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+/* D1：运行概览（活跃 Key / 速率 / 剩余时长） */
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.overview-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+}
+
+.overview-cell__label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.overview-cell__value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.overview-cell__hint {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 400;
 }
 
 \n

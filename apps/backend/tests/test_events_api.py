@@ -71,7 +71,7 @@ def test_events_endpoint_empty(tmp_path):
     client, store = _app(tmp_path, _ok_handler)
     resp = client.get("/api/events")
     assert resp.status_code == 200
-    assert resp.json() == {"events": []}
+    assert resp.json() == {"events": [], "offset": 0, "has_more": False}
     store.close()
 
 
@@ -103,6 +103,34 @@ def test_events_endpoint_type_filter_and_limit(tmp_path):
 
     limited = client.get("/api/events?limit=1").json()["events"]
     assert len(limited) == 1
+    store.close()
+
+
+def test_events_endpoint_offset_pagination(tmp_path):
+    """D1 FR5：/api/events 支持 offset 翻页（不重不漏 + has_more）。"""
+    client, store = _app(tmp_path, _ok_handler)
+    for _ in range(5):
+        client.post("/api/v1/responses", json=_request())  # 5 条 request 事件
+
+    page1 = client.get("/api/events?limit=2&offset=0").json()
+    assert len(page1["events"]) == 2
+    assert page1["offset"] == 0
+    assert page1["has_more"] is True
+    ids1 = [e["data"]["request_id"] for e in page1["events"]]
+
+    page2 = client.get("/api/events?limit=2&offset=2").json()
+    assert len(page2["events"]) == 2
+    assert page2["offset"] == 2
+    assert page2["has_more"] is True
+    ids2 = [e["data"]["request_id"] for e in page2["events"]]
+
+    page3 = client.get("/api/events?limit=2&offset=4").json()
+    assert len(page3["events"]) == 1
+    assert page3["has_more"] is False
+    ids3 = [e["data"]["request_id"] for e in page3["events"]]
+
+    all_ids = ids1 + ids2 + ids3
+    assert len(all_ids) == len(set(all_ids)) == 5  # 不重不漏
     store.close()
 
 

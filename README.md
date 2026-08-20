@@ -1,56 +1,68 @@
 # OpenCode Go Pool
 
-多个 OpenCode Go 订阅账号合并为一个逻辑上游的代理服务 + 可视化监控台。
+A proxy service that merges multiple OpenCode Go subscription accounts into a single logical upstream, with a visual monitoring dashboard.
 
-## 解决什么问题
+[中文说明](README.zh-CN.md)
 
-单个 OpenCode Go 账号有 5 小时调用窗口限制，不够用时把多个订阅账号组成一个池子：某账号额度耗尽（429/限流）自动冷却并切换到下一个账号，对客户端呈现为一个统一 API 入口。配套 Web 大盘实时查看账号状态、用量趋势与切换历史。
+## Why
 
-## 架构
+A single OpenCode Go account is limited by a 5-hour rolling call window. When one account is not enough, merge several subscriptions into a pool: when an account hits its quota (429 / rate-limited) it is automatically cooled down and the next healthy account takes over, while clients only see one unified API endpoint. A web dashboard shows account status, usage trends, quota status and the unified event timeline in real time.
+
+## Features
+
+- **Account pool with state machine** — `healthy` / `cooldown` / `disabled`; automatic cooldown on quota/auth failures, auto-disable after consecutive failures, lazy + scheduled recovery.
+- **Transparent forwarding** — pass-through of both `OpenAI Responses` and `Chat Completions` protocols, non-streaming JSON and streaming SSE.
+- **Failover rotation** — on quota / network / server errors, mark down the failed account and retry the next healthy one; every request returns an `X-Pool-Account` header.
+- **SQLite persistence** — account states and usage statistics survive restarts (WAL mode).
+- **Gateway API keys** — optional bearer-auth for the forwarding and management endpoints (off by default for local single-user setups).
+- **Quota display** — real per-account rolling/weekly/monthly usage from the official OpenCode Go `/usage` endpoint, with server-side TTL cache and per-account degradation.
+- **Monitoring dashboard** — account status cards, usage & rotation trend charts (ECharts), quota overview, and a unified event timeline (requests / cooldown / switches / key failures / gateway key lifecycle).
+- **One-click startup** — `python start.py` kills stale processes on ports 48700/48701 (including orphaned uvicorn `--reload` workers) and quietly starts backend + frontend with health checks.
+
+## Architecture
 
 ```
-客户端（ftre / 任意 OpenAI Responses 调用方）
-        ↓  OpenAI Responses 协议
-  OpenCode Go Pool 代理（FastAPI :48700）
-   ├─ 账号池（状态机：healthy / cooldown / disabled）
-   ├─ 透明转发（非流式 JSON / 流式 SSE 透传）
-   ├─ 失败切换（quota → 冷却并换号；连续失败 → 自动禁用）
-   ├─ SQLite 持久化（重启不丢状态与统计）
-        ↓ 按账号密钥分发
-   OpenCode Go 账号 A / B / C ...
+Clients (ftre / any OpenAI Responses or Chat Completions caller)
+        ↓  OpenAI-friendly protocol (Responses / Chat Completions)
+  OpenCode Go Pool proxy (FastAPI :48700)
+   ├─ Account pool (state machine: healthy / cooldown / disabled)
+   ├─ Transparent forwarding (JSON / streaming SSE)
+   ├─ Failover rotation (quota → cooldown & switch; repeated failures → auto-disable)
+   ├─ SQLite persistence (survives restarts)
+        ↓  dispatch by account API key
+   OpenCode Go accounts A / B / C ...
         ↑
-  Web 监控台（React + ECharts :48701）
+  Web dashboard (React + ECharts :48701)
 ```
 
-## 快速开始
+## Quick Start
 
-### 一键启动（推荐）
+### One-click startup (recommended)
 
-首次完成下方手动安装步骤（后端 .venv + 前端 pnpm install）后，日常开发只需：
+After the first-time manual install steps below (backend `.venv` + frontend `pnpm install`), day-to-day development is just:
 
 ```bash
 python start.py
 ```
 
-自动清理 48700/48701 端口旧进程（含 uvicorn --reload 的孤儿子进程）→ 静默启动前后端 → 健康检查。
-日志写 `logs/backend.log` 与 `logs/web.log`（已 gitignore）；再次运行即重启。
+It kills stale processes on ports 48700/48701 (including orphaned uvicorn `--reload` children), silently starts backend + frontend, then runs health checks. Logs go to `logs/backend.log` and `logs/web.log` (git-ignored). Running it again restarts the services.
 
-### 1. 后端（Python 3.12）
+### 1. Backend (Python 3.12)
 
 ```bash
 cd apps/backend
 python -m venv .venv
-.venv\Scripts\activate          # Windows
+.venv\Scripts\activate          # Windows (Linux/macOS: source .venv/bin/activate)
 pip install -e ".[dev]"
 
-# 配置账号（密钥走环境变量，不入库）
-copy config\accounts.example.yaml config\accounts.yaml
-set OPENCODE_GO_KEY_1=sk-xxxx   # 对应 accounts.yaml 中的 ${OPENCODE_GO_KEY_1}
+# Configure accounts (keys are referenced via env vars, never committed)
+copy config\accounts.example.yaml config\accounts.yaml   # Windows
+set OPENCODE_GO_KEY_1=sk-xxxx   # matches ${OPENCODE_GO_KEY_1} in accounts.yaml
 
 .venv\Scripts\python -m uvicorn opencode_pool.app:app --host 127.0.0.1 --port 48700
 ```
 
-### 2. 前端（Node 24 + pnpm 11）
+### 2. Frontend (Node 24 + pnpm 11)
 
 ```bash
 cd apps/web
@@ -58,30 +70,33 @@ pnpm install
 pnpm dev          # http://localhost:48701
 ```
 
-### 3. 验证
+### 3. Verify
 
 ```bash
 curl http://127.0.0.1:48700/health
 curl http://127.0.0.1:48700/api/accounts
 ```
 
-浏览器打开 http://localhost:48701 查看账号状态大盘、用量趋势与统一事件时间线。
+Open http://localhost:48701 in a browser to view the account status dashboard, usage trends and the unified event timeline.
 
-详细操作手册见 [docs/usage.md](docs/usage.md)。
+A detailed manual is available at [docs/usage.md](docs/usage.md) (Chinese).
 
-## API 汇总
+## API Summary
 
-| 端点 | 方法 | 说明 |
+| Endpoint | Method | Description |
 |---|---|---|
-| `/api/stats?hours=24` | GET | 用量聚合（按小时桶 + 按账号汇总） |
-| `/api/quota?refresh=0\|1` | GET | OpenCode Go 每账号滚动/周/月额度 + 全池汇总（服务端 TTL 缓存） |
-| `/api/events?limit=100&type=request,key_switch` | GET | 统一事件日志（type/data/meta/time；type 逗号分隔筛选） |
-| `/api/v1/responses` | POST | OpenAI Responses 透明转发（支持流式 SSE） |
-| `/api/v1/chat/completions` | POST | OpenAI Chat Completions 透明转发（支持流式 SSE） |
-| `/api/v1/models` | GET | 账号池合并模型清单 |
-| `/v1/*` | - | 上述三个转发端点的标准 OpenAI SDK 路径别名 |
+| `/health` | GET | Health check (returns status + version) |
+| `/api/accounts` | GET | Pool accounts overview with masked keys |
+| `/api/stats?hours=24` | GET | Usage aggregation (hourly buckets + per-account totals) |
+| `/api/quota?refresh=0\|1` | GET | Per-account rolling/weekly/monthly quota + pool summary (server-side TTL cache) |
+| `/api/events?limit=100&type=request,key_switch` | GET | Unified event log (`type`/`data`/`meta`/`time`; comma-separated type filter) |
+| `/api/keys` | GET/POST | List / create gateway API keys (plaintext shown once) |
+| `/api/v1/responses` | POST | OpenAI Responses transparent forwarding (streaming SSE supported) |
+| `/api/v1/chat/completions` | POST | OpenAI Chat Completions transparent forwarding (streaming SSE supported) |
+| `/api/v1/models` | GET | Merged model list of the account pool |
+| `/v1/*` | - | Standard OpenAI SDK path aliases for the forwarding endpoints above |
 
-转发示例：
+Forwarding example:
 
 ```bash
 curl http://127.0.0.1:48700/api/v1/responses \
@@ -89,37 +104,50 @@ curl http://127.0.0.1:48700/api/v1/responses \
   -d '{"model":"gpt-5.6-luna","input":"hi","stream":false}'
 ```
 
-## 配置（.env / 环境变量）
+## Configuration (.env / environment variables)
 
-| 变量 | 默认值 | 说明 |
+| Variable | Default | Description |
 |---|---|---|
-| `APP_NAME` | opencode-go-pool | 应用名 |
-| `LOG_LEVEL` | INFO | 日志级别 |
-| `HOST` | 127.0.0.1 | 监听地址 |
-| `PORT` | 48700 | 监听端口 |
-| `UPSTREAM_BASE_URL` | https://api.opencode.ai/v1 | 上游默认地址（账号可覆盖） |
-| `DB_PATH` | data/opencode_pool.db | SQLite 持久化路径 |
-| `QUOTA_CACHE_TTL_SECONDS` | 60 | 额度查询缓存秒数（缓存期内不重复访问上游） |
-| `QUOTA_TIMEOUT_SECONDS` | 10 | 单账号额度查询超时（秒） |
-账号配置见 `apps/backend/config/accounts.example.yaml`（api_key 用 `${ENV_VAR}` 引用环境变量）。
+| `APP_NAME` | opencode-go-pool | Application name |
+| `LOG_LEVEL` | INFO | Log level |
+| `HOST` | 127.0.0.1 | Listen address |
+| `PORT` | 48700 | Listen port |
+| `UPSTREAM_BASE_URL` | https://api.opencode.ai/v1 | Default upstream (overridable per account) |
+| `UPSTREAM_TIMEOUT` | 60 | Upstream request timeout (seconds) |
+| `POOL_SCAN_INTERVAL_SECONDS` | 60 | Cooldown scan interval (seconds) |
+| `MAX_CONSECUTIVE_FAILURES` | 3 | Consecutive failures before auto-disable |
+| `DB_PATH` | data/opencode_pool.db | SQLite database path |
+| `QUOTA_CACHE_TTL_SECONDS` | 60 | Quota query cache TTL (seconds) |
+| `QUOTA_TIMEOUT_SECONDS` | 10 | Per-account quota query timeout (seconds) |
 
-## 目录结构
+Account configuration: `apps/backend/config/accounts.example.yaml` — `api_key` references environment variables via `${ENV_VAR}` (e.g. `${OPENCODE_GO_KEY_1}`). Secrets live only in your local `.env` / environment, never in the repository.
+
+Optional gateway authentication: in `.env.keys` (git-ignored), set `GATEWAY_AUTH=on` to enable bearer validation and `GATEWAY_MASTER_KEY` to register a master key. Gateway keys are stored hashed (SHA-256) in the database; the plaintext is shown only once at creation.
+
+## Directory Layout
 
 ```
 opencode-go-pool/
 ├─ apps/
-├─ apps/
-│  ├─ backend/     FastAPI 代理核心（accounts / proxy / usage / quota / store / scheduler）
-│  └─ web/         React + Vite + ECharts 监控台（账号状态 / 额度 / 用量 / 事件）
+│  ├─ backend/     FastAPI proxy core (accounts / proxy / usage / quota / store / scheduler)
+│  └─ web/         React + Vite + ECharts dashboard (status / quota / usage / events)
+├─ docs/           TODO.yaml / PROCESS.md / prd/ / usage.md / security-audit.md
+└─ start.py        One-click startup script (Windows)
+```
 
-## 开发规范（Rondo 方法）
+## Development Workflow (Rondo Method)
 
-- 行为规范：`AGENTS.md`
-- 任务清单：`docs/TODO.yaml`（唯一执行依据）
-- 推进办法：`docs/PROCESS.md`（六步闭环）
-- 阶段 PRD：`docs/prd/`
-- CI：push/PR 自动跑 backend（pytest/ruff）+ web（eslint/vitest/build）
+- Behavior rules: `AGENTS.md`
+- Task list: `docs/TODO.yaml` (single source of truth)
+- Process: `docs/PROCESS.md` (six-step loop)
+- Per-stage PRD: `docs/prd/`
+- CI: on every push/PR — backend (`pytest` + `ruff`) and web (`eslint` + `vitest` + `build`)
+- Branching: Git Flow with a full pull-request flow (main/develop never receive direct commits; feature branches are merged via PR with mandatory stage-ID scoped commit messages)
 
-## 合规边界
+## Compliance Boundary
 
-只支持官方 API Key 的合法接入与故障切换；不实现 Cookie 抓取、Session 复用、凭证伪造、对外转售额度等行为。多账号订阅是否允许集中到内部网关，请以 OpenCode 官方答复为准。
+This project only supports legitimate access with official API keys and failure failover. It does not implement cookie scraping, session reuse, credential forging, or reselling quotas. Whether aggregating multiple subscriptions behind an internal gateway complies with OpenCode's terms is up to the official answer from OpenCode.
+
+## License
+
+[MIT](LICENSE)
