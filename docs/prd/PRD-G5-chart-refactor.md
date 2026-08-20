@@ -103,3 +103,4 @@ function useEChart<T extends EChartsCoreOption>(
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
+| 2026-08-21 | 实现完成：新增 `useEChart` hook（getInstanceByDom 复用实例 + chartRef 持引用 + setOption(notMerge) + 统一 resize/dispose）；7 图表组件迁移完成（AccountLoad / AccountTokenShare / ErrorType / ModelUsage / Protocol / SuccessRateTrend / Usage），净删 109 行重复样板；删除 useAccountPolling.ts 的 AccountsState 死接口；新增 useEChart.test.tsx 5 例（init 一次 / deps 复用 / resize / 卸载 dispose / 已有实例复用） | 阶段 G5 开发 |

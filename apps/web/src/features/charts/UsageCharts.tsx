@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import * as echarts from "echarts/core";
 import { BarChart, LineChart } from "echarts/charts";
 import {
@@ -10,6 +9,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { StatsResponse } from "../../types/pool";
 import { useI18n, useTheme } from "../../i18n";
 import { chartColors } from "../../theme/tokens";
+import { useEChart } from "./useEChart";
 
 // 按需注册（A3 DemoChart 同模式）
 echarts.use([
@@ -28,18 +28,14 @@ echarts.use([
  *（≤48h 显示 HH:MM，>48h 显示 MM-DD HH:MM）。
  */
 export function UsageCharts({ stats }: { stats: StatsResponse }) {
-  const ref = useRef<HTMLDivElement>(null);
   const { t } = useI18n();
   const { theme } = useTheme();
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+  const ref = useEChart(() => {
     const c = chartColors(theme);
-    const chart = echarts.init(el);
     const longWindow = stats.hours > 48;
     const fmt = (ts: string): string => (longWindow ? ts.slice(5, 16) : ts.slice(11, 16));
-    chart.setOption({
+    return {
       tooltip: {
         trigger: "axis",
         formatter: (params: unknown) => {
@@ -115,12 +111,6 @@ export function UsageCharts({ stats }: { stats: StatsResponse }) {
           itemStyle: { color: c.warn },
         },
       ],
-    });
-    const onResize = () => chart.resize();
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      chart.dispose();
     };
   }, [stats, theme, t]);
 

@@ -15,17 +15,6 @@ import type {
 /** E5：用量趋势可选的统计周期（小时窗口，后端 /api/stats?hours= 已支持 1..168）。 */
 export type StatsHours = 24 | 72 | 168;
 
-export interface AccountsState {
-  accounts: PoolAccount[];
-  stats: StatsResponse | null;
-  quota: QuotaResponse | null;
-  overview: LogsOverview | null;
-  error: string | null;
-  quotaError: string | null;
-  overviewError: string | null;
-  loading: boolean;
-}
-
 function errorText(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
