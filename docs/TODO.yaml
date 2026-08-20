@@ -237,11 +237,11 @@ stages:
         acceptance: 四文档齐备（根/后端/前端/使用手册）+ 命令实测可跑 + API 汇总覆盖全部端点
       - id: G3
         title: CICD 自动打包验证
-        status: in_progress
+        status: done
         date: 2026-08-20
         prd: docs/prd/PRD-G3-ci-pack.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - .github/workflows/ci.yml
           - scripts/package_release.py
-        acceptance: CI 自动产出后端 wheel + 前端 dist 并组装为完整发布包；真实安装/结构校验通过；产物上传 artifact、tag 自动挂 GitHub Release；README/CONTRIBUTING 同步
+        acceptance: CI 三 job（backend 产 wheel / web 传 dist / pack 组装+真实校验并上传 release-package）全绿，artifact 可下载；tag v* 自动挂 GitHub Release；本地与 CI 双重验证 wheel 可安装、dist 资源完整；README/CONTRIBUTING 同步
