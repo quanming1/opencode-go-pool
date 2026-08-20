@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import * as echarts from "echarts/core";
 import { BarChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
@@ -6,6 +5,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { StatsResponse } from "../../types/pool";
 import { useI18n, useTheme } from "../../i18n";
 import { chartColors } from "../../theme/tokens";
+import { useEChart } from "./useEChart";
 
 echarts.use([BarChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
@@ -14,17 +14,13 @@ echarts.use([BarChart, GridComponent, LegendComponent, TooltipComponent, CanvasR
  * 数据来自 stats.error_types（旧后端缺失时父层显示空态）。
  */
 export function ErrorTypeChart({ stats }: { stats: StatsResponse }) {
-  const ref = useRef<HTMLDivElement>(null);
   const { t } = useI18n();
   const { theme } = useTheme();
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+  const ref = useEChart(() => {
     const c = chartColors(theme);
-    const chart = echarts.init(el);
     const types = stats.error_types ?? [];
-    chart.setOption({
+    return {
       tooltip: { trigger: "axis" },
       legend: { data: [t("chart.legend.errors")], top: 8 },
       grid: { left: 72, right: 24, top: 48, bottom: 36 },
@@ -44,12 +40,6 @@ export function ErrorTypeChart({ stats }: { stats: StatsResponse }) {
           itemStyle: { color: c.danger },
         },
       ],
-    });
-    const onResize = () => chart.resize();
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      chart.dispose();
     };
   }, [stats, theme, t]);
 

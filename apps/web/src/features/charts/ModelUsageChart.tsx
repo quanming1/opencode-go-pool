@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import * as echarts from "echarts/core";
 import { BarChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
@@ -6,6 +6,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { StatsResponse } from "../../types/pool";
 import { useI18n, useTheme } from "../../i18n";
 import { chartColors } from "../../theme/tokens";
+import { useEChart } from "./useEChart";
 
 echarts.use([
   BarChart,
@@ -53,18 +54,14 @@ function modelAgg(stats: StatsResponse): Array<{
  * 各模型收到多少次请求、多少次错误，以及累计 token 与成功率。
  */
 export function ModelUsageChart({ stats }: { stats: StatsResponse }) {
-  const ref = useRef<HTMLDivElement>(null);
   const { t } = useI18n();
   const { theme } = useTheme();
   // useMemo：stats 不变时不重建数据，避免每 render 重绘图表
   const data = useMemo(() => modelAgg(stats), [stats]);
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+  const ref = useEChart(() => {
     const c = chartColors(theme);
-    const chart = echarts.init(el);
-    chart.setOption({
+    return {
       tooltip: {
         trigger: "axis",
         formatter: (params: unknown) => {
@@ -113,12 +110,6 @@ export function ModelUsageChart({ stats }: { stats: StatsResponse }) {
           itemStyle: { color: c.danger, opacity: 0.85 },
         },
       ],
-    });
-    const onResize = () => chart.resize();
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      chart.dispose();
     };
   }, [data, theme, t]);
 

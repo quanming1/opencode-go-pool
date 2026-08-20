@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import * as echarts from "echarts/core";
 import { LineChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
@@ -6,6 +5,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { StatsResponse } from "../../types/pool";
 import { useI18n, useTheme } from "../../i18n";
 import { chartColors } from "../../theme/tokens";
+import { useEChart } from "./useEChart";
 import { bucketSuccessRates } from "./chartData";
 
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
@@ -15,17 +15,13 @@ echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, Canvas
  * 旧后端（无 success_count）自动回退 request-error 推算；无请求的桶为断点（connectNulls）。
  */
 export function SuccessRateTrendChart({ stats }: { stats: StatsResponse }) {
-  const ref = useRef<HTMLDivElement>(null);
   const { t } = useI18n();
   const { theme } = useTheme();
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+  const ref = useEChart(() => {
     const c = chartColors(theme);
-    const chart = echarts.init(el);
     const data = bucketSuccessRates(stats);
-    chart.setOption({
+    return {
       tooltip: { trigger: "axis" },
       legend: { data: [t("chart.legend.successRate")], top: 8 },
       grid: { left: 48, right: 32, top: 48, bottom: 36 },
@@ -54,12 +50,6 @@ export function SuccessRateTrendChart({ stats }: { stats: StatsResponse }) {
           areaStyle: { color: c.ok, opacity: 0.08 },
         },
       ],
-    });
-    const onResize = () => chart.resize();
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      chart.dispose();
     };
   }, [stats, theme, t]);
 

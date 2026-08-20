@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import * as echarts from "echarts/core";
 import { BarChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
@@ -6,27 +5,18 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { StatsResponse } from "../../types/pool";
 import { useI18n, useTheme } from "../../i18n";
 import { chartColors } from "../../theme/tokens";
+import { useEChart } from "./useEChart";
 
-echarts.use([
-  BarChart,
-  GridComponent,
-  LegendComponent,
-  TooltipComponent,
-  CanvasRenderer,
-]);
+echarts.use([BarChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
 /** 账号负载图（D1 FR7；E2 i18n/主题；E4 加成功率折线与 token tooltip）：
  * 各 Key 收到多少次请求、多少次错误，以及成功率（右轴 %）。 */
 export function AccountLoadChart({ stats }: { stats: StatsResponse }) {
-  const ref = useRef<HTMLDivElement>(null);
   const { t } = useI18n();
   const { theme } = useTheme();
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+  const ref = useEChart(() => {
     const c = chartColors(theme);
-    const chart = echarts.init(el);
     const accounts = stats.per_account;
     const rateOf = (a: { request_count: number; error_count: number; success_count?: number }): number => {
       const err = a.error_count;
@@ -34,7 +24,7 @@ export function AccountLoadChart({ stats }: { stats: StatsResponse }) {
       const total = ok + err;
       return total > 0 ? Math.round((ok / total) * 100) : 0;
     };
-    chart.setOption({
+    return {
       tooltip: {
         trigger: "axis",
         formatter: (params: unknown) => {
@@ -103,12 +93,6 @@ export function AccountLoadChart({ stats }: { stats: StatsResponse }) {
           lineStyle: { width: 2 },
         },
       ],
-    });
-    const onResize = () => chart.resize();
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      chart.dispose();
     };
   }, [stats.per_account, theme, t]);
 
