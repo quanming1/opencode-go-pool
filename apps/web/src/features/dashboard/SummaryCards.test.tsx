@@ -30,21 +30,56 @@ const summary: QuotaSummary = {
 };
 
 describe("SummaryCards C5 额度总览", () => {
-  it("展示额度可用账号数、总额度估算与三个窗口均值", () => {
-    render(<SummaryCards accounts={accounts} quotaSummary={summary} />);
+  it("将账号状态收进紧凑状态框，并展示三条总额度进度条", () => {
+    const accountsWithStatuses: PoolAccount[] = [
+      accounts[0],
+      {
+        ...accounts[0],
+        id: "a2",
+        status: "cooldown",
+      },
+      {
+        ...accounts[0],
+        id: "a3",
+        status: "disabled",
+        enabled: false,
+      },
+    ];
+
+    render(<SummaryCards accounts={accountsWithStatuses} quotaSummary={summary} />);
+
+    expect(screen.getByTestId("summary-status")).toBeDefined();
+    expect(screen.getByTestId("summary-available")).toHaveTextContent("1");
+    expect(screen.getByTestId("summary-cooldown")).toHaveTextContent("1");
+    expect(screen.getByTestId("summary-disabled")).toHaveTextContent("1");
     expect(screen.getByTestId("summary-quota")).toBeDefined();
     expect(screen.getByTestId("summary-quota-available")).toHaveTextContent("2/3");
-    expect(screen.getByText("额度可用")).toBeDefined();
-    expect(screen.getByText(/估算 \$6 \/ 总额 \$36/)).toBeDefined();
-    expect(screen.getByText(/估算 \$54 \/ 总额 \$90/)).toBeDefined();
-    expect(screen.getByText(/估算 \$76 \/ 总额 \$180/)).toBeDefined();
-    expect(screen.getByText("18%")).toBeDefined();
-    expect(screen.getByText("60%")).toBeDefined();
-    expect(screen.getByText("42%")).toBeDefined();
+    expect(screen.getByTestId("summary-quota-bar-rolling")).toHaveAttribute(
+      "aria-valuenow",
+      "17",
+    );
+    expect(screen.getByTestId("summary-quota-bar-weekly")).toHaveAttribute(
+      "aria-valuenow",
+      "60",
+    );
+    expect(screen.getByTestId("summary-quota-bar-monthly")).toHaveAttribute(
+      "aria-valuenow",
+      "42",
+    );
+    expect(screen.getByText("估算 $6")).toBeDefined();
+    expect(screen.getByText("总额 $36")).toBeDefined();
+    expect(screen.getByText("估算 $54")).toBeDefined();
+    expect(screen.getByText("总额 $90")).toBeDefined();
+    expect(screen.getByText("估算 $76")).toBeDefined();
+    expect(screen.getByText("总额 $180")).toBeDefined();
+    expect(screen.getAllByText("18%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("60%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("42%").length).toBeGreaterThan(0);
   });
 
-  it("无额度数据时不展示额度总览卡", () => {
+  it("无额度数据时保留状态框且不展示额度总览卡", () => {
     render(<SummaryCards accounts={accounts} />);
+    expect(screen.getByTestId("summary-status")).toBeDefined();
     expect(screen.queryByTestId("summary-quota")).toBeNull();
   });
 });
