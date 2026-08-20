@@ -18,6 +18,7 @@ A single OpenCode Go account is limited by a 5-hour rolling call window. When on
 - **Quota display** — real per-account rolling/weekly/monthly usage from the official OpenCode Go `/usage` endpoint, with server-side TTL cache and per-account degradation.
 - **Monitoring dashboard** — account status cards, usage & rotation trend charts (ECharts), quota overview, and a unified event timeline (requests / cooldown / switches / key failures / gateway key lifecycle).
 - **One-click startup** — `python start.py` kills stale processes on ports 48700/48701 (including orphaned uvicorn `--reload` workers) and quietly starts backend + frontend with health checks.
+- **Automatic CI/CD packaging** — every push/PR builds the backend wheel and the frontend `dist`, assembles a complete release package, verifies it (fresh-venv install + asset integrity), and uploads it as a downloadable artifact; `v*` tags publish it to the GitHub Release automatically.
 
 ## Architecture
 
@@ -141,8 +142,18 @@ opencode-go-pool/
 - Task list: `docs/TODO.yaml` (single source of truth)
 - Process: `docs/PROCESS.md` (six-step loop)
 - Per-stage PRD: `docs/prd/`
-- CI: on every push/PR — backend (`pytest` + `ruff`) and web (`eslint` + `vitest` + `build`)
+- CI/CD: on every push/PR — backend (`pytest` + `ruff` + build the wheel) and web (`eslint` + `vitest` + `build`); then a `pack` job assembles and verifies a complete release package and uploads it as an artifact (see [CI/CD Packaging](#cicd-packaging))
 - Branching: Git Flow with a full pull-request flow (main/develop never receive direct commits; feature branches are merged via PR with mandatory stage-ID scoped commit messages)
+
+## CI/CD Packaging
+
+Every push/PR runs three jobs (`.github/workflows/ci.yml`):
+
+1. **backend** — lint, test, and `python -m build` produce the `opencode_pool` wheel (uploaded as the `backend-dist` artifact);
+2. **web** — lint, test, and build `dist/` (uploaded as the `web-dist` artifact);
+3. **pack** — downloads both artifacts and runs `scripts/package_release.py` (pure standard library, also runnable locally) to assemble `opencode-go-pool-<version>.zip` (back-end wheel + frontend `dist` + `start.py` + docs + sample configs). The script verifies the package: the wheel installs in a fresh `venv` and imports with the matching version, and every asset referenced by `dist/index.html` exists inside the package. The resulting zip is uploaded as the `release-package` artifact.
+
+Pushing a `v*` tag additionally uploads the package to the GitHub Release of the same tag (auto-created if missing), so every release ships a ready-to-use archive.
 
 ## Compliance Boundary
 
