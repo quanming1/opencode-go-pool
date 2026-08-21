@@ -46,6 +46,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
             yield
         finally:
             await app.state.quota_service.close()
+            # perf/B2：回收转发器自建的 HTTP 连接池（AsyncClient）
+            await app.state.forwarder.close()
             task.cancel()
             try:
                 await task
