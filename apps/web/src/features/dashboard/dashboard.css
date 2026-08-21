@@ -669,6 +669,18 @@
   flex-wrap: wrap;
   gap: 16px 32px;
 }
+/* G8：FAST_MODE 口径徽章（仅 fast 模式显示；hover 显示完整口径说明） */
+.stats-fast-mode {
+  align-self: center;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  letter-spacing: 0.5px;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  white-space: nowrap;
+}
 .stat-item {
   display: flex;
   flex-direction: column;

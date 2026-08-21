@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     # C5：额度查询缓存与超时
     quota_cache_ttl_seconds: int = 60
     quota_timeout_seconds: float = 10.0
+    # G8：极致性能模式——成功请求不落库，仅固定上限内存聚合（见 PRD-G8）
+    fast_mode: bool = False
 
     # 严格模式：环境里出现未定义字段时直接报错，防配置漂移
     model_config = SettingsConfigDict(

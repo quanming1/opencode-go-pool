@@ -121,6 +121,7 @@ curl http://127.0.0.1:48700/api/v1/responses \
 | `DB_PATH` | data/opencode_pool.db | SQLite database path |
 | `QUOTA_CACHE_TTL_SECONDS` | 60 | Quota query cache TTL (seconds) |
 | `QUOTA_TIMEOUT_SECONDS` | 10 | Per-account quota query timeout (seconds) |
+| `FAST_MODE` | false | Performance-first mode: successful requests are aggregated in memory only (bounded, 168h window) and never written to SQLite — no per-request usage rows or request events. Failures / key switches / cooldown / disable events are still persisted. Per-request success history is not retained across restarts. `/api/stats` returns `mode: "fast"` and the dashboard shows a FAST badge. |
 
 Account configuration: `apps/backend/config/accounts.example.yaml` — `api_key` references environment variables via `${ENV_VAR}` (e.g. `${OPENCODE_GO_KEY_1}`). Secrets live only in your local `.env` / environment, never in the repository.
 

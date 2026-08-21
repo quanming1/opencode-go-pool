@@ -122,3 +122,4 @@
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
+| 2026-08-21 | 实现完成：FR1-FR7 全部落地——config.fast_mode（FAST_MODE 环境变量）；metrics/fast.py FastMetrics（168 小时桶窗口 + 每桶 500 耗时样本上限 + per_account/per_account_models/error_types/protocol 聚合，snapshot 与 aggregate_usage 契约兼容）；SQLiteWriter 有界化（maxsize=2000，满载非阻塞：droppable 直接丢弃、不可丢任务驱逐最旧 droppable，dropped 计数，驱逐同步递减 pending 防 flush 死锁）；UsageRecorder/EventRecorder fast_mode 短路（成功 request 不构造事件 JSON 不落库，失败/状态事件保留，usage submit 标 droppable=kind==success）；forwarder 4 处 record 补 duration_ms/protocol（仅 fast 聚合使用，save_usage 无这两列）；/api/stats 输出 mode 字段（fast/normal）；前端 StatsResponse.mode + FAST 徽章（i18n stats.fastMode）；.env.example 说明；测试新增 test_fast_metrics 8 例 + test_fast_mode 7 例 + test_writer 有界 2 例（共 25 例，全量 pytest 163 绿 + ruff 0） | 阶段 G8 开发 |

@@ -47,14 +47,24 @@ class EventRecorder:
 
     G7：构造可选 writer（SQLiteWriter）——非 None 时 record 仅入队（零阻塞），
     由单写线程异步落库；无 writer（默认）保持同步直写（测试/独立使用）。
+    G8：fast_mode 开启时，成功 request 事件（REQUEST + data.success=True）
+    在构造事件 JSON 之前短路返回（零 JSON 零入队）；失败/状态事件完整保留。
+    所有 submit 带 droppable 标记：成功快照可被写队列满载时驱逐重建。
     """
 
-    def __init__(self, store: object | None = None, writer: object | None = None) -> None:
+    def __init__(
+        self,
+        store: object | None = None,
+        writer: object | None = None,
+        fast_mode: bool = False,
+    ) -> None:
         # store 需提供 save_event(type_, event_time, data_json, meta_json)
         # 与 query_events(limit, types)（AccountStore 实现，duck-typing）。
         self._store = store
         # G7：异步落库队列（需提供 submit(fn, *args)；None = 同步直写）
         self._writer = writer
+        # G8：极致性能模式——成功 request 事件不构造不落库（PRD-G8 FR5）
+        self._fast_mode = fast_mode
 
     def record(
         self,
@@ -63,12 +73,22 @@ class EventRecorder:
         meta: dict | None = None,
     ) -> None:
         """记录一条事件（time=UTC ISO-8601；meta 自动补 schema_version）。"""
+        # G8：FAST_MODE 下成功 request 事件在组装 event dict 之前短路——
+        # 成功流不构造事件 JSON、不入队（失败/状态事件不受影响）
+        if (
+            self._fast_mode
+            and str(type_) == EventType.REQUEST
+            and bool(data.get("success"))
+        ):
+            return
         event = {
             "type": str(type_),
             "data": data if data else {},
             "meta": {"schema_version": SCHEMA_VERSION, **(meta or {})},
             "time": _dt.datetime.now(_dt.UTC).isoformat(),
         }
+        # droppable：成功 request 事件属可重建快照（写队列满载时可被驱逐）
+        droppable = str(type_) == EventType.REQUEST and bool(data.get("success"))
         if self._store is None:
             return
         if self._writer is not None:
@@ -79,6 +99,7 @@ class EventRecorder:
                 event["time"],
                 _dumps(event["data"]),
                 _dumps(event["meta"]),
+                droppable=droppable,
             )
             return
         try:

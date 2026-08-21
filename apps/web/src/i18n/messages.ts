@@ -94,6 +94,8 @@ export const messages = {
     "stats.activeAccounts": "活跃账号",
     "stats.percent": "{value}%",
     "stats.ms": "{value} ms",
+    // G8：极致性能模式口径标注（fast=内存聚合，重启不保留逐条成功历史）
+    "stats.fastMode": "性能模式：成功请求仅内存聚合，重启后逐条历史不保留",
     // 事件时间线
     "events.title": "事件时间线",
     "events.empty": "暂无事件",
@@ -256,6 +258,8 @@ export const messages = {
     "stats.activeAccounts": "Active accounts",
     "stats.percent": "{value}%",
     "stats.ms": "{value} ms",
+    // G8：fast mode lens note（in-memory aggregation, no per-request history）
+    "stats.fastMode": "Fast mode: successes aggregated in memory only, per-request history not retained across restarts",
     // Event timeline
     "events.title": "Event timeline",
     "events.empty": "No events",

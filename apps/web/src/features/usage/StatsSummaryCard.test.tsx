@@ -112,4 +112,26 @@ describe("StatsSummaryCard（E4 运行汇总）", () => {
     expect(valueText("summary-active-models")).toContain("0");
     expect(valueText("summary-active-accounts")).toContain("0");
   });
+
+  it("G8：fast 模式显示口径徽章，normal/旧后端不显示", () => {
+    const fast = makeStats();
+    fast.mode = "fast";
+    const { unmount } = render(
+      <I18nProvider>
+        <StatsSummaryCard stats={fast} />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId("stats-fast-mode")).toBeTruthy();
+    // hover 提示包含完整口径说明（zh）
+    expect(screen.getByTestId("stats-fast-mode").getAttribute("title")).toContain("内存聚合");
+    unmount();
+    const normal = makeStats();
+    normal.mode = "normal";
+    render(
+      <I18nProvider>
+        <StatsSummaryCard stats={normal} />
+      </I18nProvider>,
+    );
+    expect(screen.queryByTestId("stats-fast-mode")).toBeNull();
+  });
 });

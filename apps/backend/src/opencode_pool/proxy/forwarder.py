@@ -132,7 +132,14 @@ class Forwarder:
                     try:
                         self._pool.record_success(acc.id)
                         if self._usage is not None:
-                            self._usage.record(acc.id, kind="success")
+                            # G8：duration/protocol 供 FAST_MODE 内存聚合
+                            # （usage_events 无这两列，normal 模式忽略）
+                            self._usage.record(
+                                acc.id,
+                                kind="success",
+                                duration_ms=int((time.monotonic() - started) * 1000),
+                                protocol=upstream_path.lstrip("/"),
+                            )
                         self._emit_request(
                             request_id,
                             succeeded=True,
@@ -177,10 +184,20 @@ class Forwarder:
                     # C2：记录失败用量（error_type = 错误分类）
                     if self._usage is not None:
                         self._usage.record(
-                            account.id, kind="error", error_type=exc.kind.value
+                            account.id,
+                            kind="error",
+                            error_type=exc.kind.value,
+                            duration_ms=int((time.monotonic() - started) * 1000),
+                            protocol=upstream_path.lstrip("/"),
                         )
                 elif self._usage is not None:
-                    self._usage.record(account.id, kind="error", error_type="bad_request")
+                    self._usage.record(
+                        account.id,
+                        kind="error",
+                        error_type="bad_request",
+                        duration_ms=int((time.monotonic() - started) * 1000),
+                        protocol=upstream_path.lstrip("/"),
+                    )
                 prev_account = account
                 prev_error = exc
                 if exc.kind in (ErrorKind.AUTH, ErrorKind.BAD_REQUEST):
@@ -311,6 +328,8 @@ class Forwarder:
         流式场景 token 无法精确统计，返回 (0, 0)（PRD-C2 §3 边界）。
         on_stream_done：流式成功时，在该流整体发送完毕后调用（首字节前不落库）。
         """
+        # G8：单次尝试耗时（FAST_MODE 内存聚合的 duration 数据源）
+        attempt_started = time.monotonic()
         client = self._client
         url = f"{self._base_url(account)}{upstream_path}"
         headers = {
@@ -356,6 +375,8 @@ class Forwarder:
                         kind="success",
                         prompt_tokens=prompt_tokens,
                         completion_tokens=completion_tokens,
+                        duration_ms=int((time.monotonic() - attempt_started) * 1000),
+                        protocol=upstream_path.lstrip("/"),
                     )
                 response = Response(
                     content=body_text,
