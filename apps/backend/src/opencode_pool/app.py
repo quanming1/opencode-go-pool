@@ -20,6 +20,7 @@ from opencode_pool.proxy.forwarder import Forwarder
 from opencode_pool.proxy.router import alias_router as proxy_alias_router
 from opencode_pool.scheduler import run_pool_scanner
 from opencode_pool.store.sqlite_store import AccountStore
+from opencode_pool.store.writer import SQLiteWriter
 
 logger = logging.getLogger("opencode_pool.app")
 
@@ -31,7 +32,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
         config_path: 账号配置文件路径；None 时用默认 config/accounts.yaml，
             文件不存在则空账号池（可启动，见 B1 PRD AC6）。
     """
-    pool, store, event_recorder = _build_pool(config_path)
+    pool, store, event_recorder, writer = _build_pool(config_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -46,6 +47,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
             yield
         finally:
             await app.state.quota_service.close()
+            writer.flush()
+            writer.close()
             # perf/B2：回收转发器自建的 HTTP 连接池（AsyncClient）
             await app.state.forwarder.close()
             task.cancel()
@@ -63,7 +66,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
     # C2：用量记录器（与账号池共用同一 SQLite store）
     from opencode_pool.usage.recorder import UsageRecorder
 
-    recorder = UsageRecorder(store)
+    recorder = UsageRecorder(store, writer=writer)
     app.state.usage_recorder = recorder
 
     # C5：额度查询服务（官方 usage 接口 + TTL 缓存；失败降级不影响转发）
@@ -138,15 +141,16 @@ def _load_auth_flag() -> bool:
 
 def _build_pool(
     config_path: str | None,
-) -> tuple[AccountPool, AccountStore, EventRecorder]:
-    """构建账号池 + 共用 store + 统一事件记录器。
+) -> tuple[AccountPool, AccountStore, EventRecorder, object]:
+    """构建账号池 + 共用 store + 统一事件记录器（+ 异步落库队列）。
 
     Args:
         config_path: 账号配置文件路径；None 用默认。
 
     Returns:
-        (pool, store, event_recorder) —— store 供 UsageRecorder 共用（C2），
-        event_recorder 注入账号池状态事件（C4）。
+        (pool, store, event_recorder, writer) —— store 供 UsageRecorder 共用（C2），
+        event_recorder 注入账号池状态事件（C4），writer 为 G7 单写线程落库队列
+        （event_recorder/UsageRecorder 共享，零阻塞热路径）。
     """
     if config_path is None:
         config_path = "config/accounts.yaml"
@@ -155,7 +159,9 @@ def _build_pool(
     # B4：SQLite 持久化（DB 不可写时 store.available=False，池退化为纯内存；
     # C4：构造函数内自动迁移旧 switch_history 表）
     store = AccountStore(settings.db_path)
-    event_recorder = EventRecorder(store)
+    # G7：单写线程落库队列（转发与轮询热路径零同步 IO）
+    writer = SQLiteWriter()
+    event_recorder = EventRecorder(store, writer=writer)
     pool = AccountPool(
         accounts=accounts,
         max_consecutive_failures=settings.max_consecutive_failures,
@@ -172,7 +178,7 @@ def _build_pool(
     else:
         logger.warning("[app] SQLite 持久化不可用，本次运行状态不会跨重启保留")
 
-    return pool, store, event_recorder
+    return pool, store, event_recorder, writer
 
 
 app = create_app()

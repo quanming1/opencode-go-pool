@@ -100,3 +100,4 @@
 | 日期 | 变更内容 | 理由 |
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
+| 2026-08-21 | 实现完成：FR6（http2 尝试）**放弃**——`http2=True` 需额外依赖 `httpx[http2]`（h2 包），对单请求/流式透传本地开销无实质收益（连接复用已解决主要瓶颈），不引入未声明依赖；其余 FR1-FR5/FR7 全部实现（SQLiteWriter 单写线程 / recorder 双模式 / stats 3s TTL 缓存 + 三 API to_thread / lifespan flush+close / test_writer 6 例） | 阶段 G7 开发 |
