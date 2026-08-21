@@ -96,3 +96,72 @@ def test_recorder_sync_mode_default(tmp_path):
     usage.record("a1", "success", prompt_tokens=1)
     assert len(store.query_events(limit=10)) == 1
     assert store.aggregate_usage(24)["totals"]["prompt_tokens"] == 1
+
+
+def _wait_until_popped(writer: SQLiteWriter, timeout: float = 1.0) -> None:
+    """等待 worker 已取出队首任务（进入执行态），消除线程调度竞态。"""
+    import time
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if len(writer._items) == 0:  # noqa: SLF001 - 测试观察内部状态
+            return
+        time.sleep(0.005)
+
+
+def test_bounded_queue_drops_droppable_without_blocking(tmp_path):
+    """满载时 droppable 任务被丢弃：submit 不阻塞、内存有界（G8 FR3）。"""
+    import threading
+
+    writer = SQLiteWriter(maxsize=2)
+    done: list[str] = []
+    gate = threading.Event()
+    try:
+
+        def _blocked(tag: str) -> None:
+            gate.wait(2.0)  # 占住写线程，期间提交必然入队/丢弃
+            done.append(tag)
+
+        writer.submit(_blocked, "t0")  # 执行中（gate 阻塞）
+        _wait_until_popped(writer)
+        writer.submit(_blocked, "t1")
+        writer.submit(_blocked, "t2")  # 队列满
+        # 满载时 droppable 直接丢弃（不阻塞返回）
+        writer.submit(_blocked, "t3", droppable=True)
+        assert writer.dropped == 1
+        gate.set()
+        writer.flush()
+        assert "t3" not in done
+    finally:
+        gate.set()
+        writer.close()
+
+
+def test_bounded_queue_keeps_critical_and_evicts_droppable(tmp_path):
+    """满载 + 不可丢任务：驱逐最旧 droppable 腾位，高价值事件必保留（G8 FR3）。"""
+    import threading
+
+    writer = SQLiteWriter(maxsize=2)
+    done: list[str] = []
+    gate = threading.Event()
+    try:
+
+        def _blocked(tag: str) -> None:
+            gate.wait(2.0)
+            done.append(tag)
+
+        writer.submit(_blocked, "t0")  # 执行中（gate 阻塞）
+        _wait_until_popped(writer)
+        writer.submit(_blocked, "t1", droppable=True)  # 队列 [droppable]
+        writer.submit(_blocked, "t2", droppable=True)  # 队列满（len=2）
+        # 不可丢任务：驱逐最旧 droppable（t1）腾位入队
+        writer.submit(_blocked, "t3")
+        assert writer.dropped == 1
+        gate.set()
+        writer.flush()
+        assert "t3" in done  # 高价值任务执行
+        assert "t1" not in done  # 最旧 droppable 被驱逐
+        assert "t2" in done  # 新入队的 droppable 保留
+    finally:
+        gate.set()
+        writer.close()

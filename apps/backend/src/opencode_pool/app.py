@@ -66,7 +66,9 @@ def create_app(config_path: str | None = None) -> FastAPI:
     # C2：用量记录器（与账号池共用同一 SQLite store）
     from opencode_pool.usage.recorder import UsageRecorder
 
-    recorder = UsageRecorder(store, writer=writer)
+    recorder = UsageRecorder(
+        store, writer=writer, fast_mode=settings.fast_mode
+    )
     app.state.usage_recorder = recorder
 
     # C5：额度查询服务（官方 usage 接口 + TTL 缓存；失败降级不影响转发）
@@ -161,7 +163,10 @@ def _build_pool(
     store = AccountStore(settings.db_path)
     # G7：单写线程落库队列（转发与轮询热路径零同步 IO）
     writer = SQLiteWriter()
-    event_recorder = EventRecorder(store, writer=writer)
+    # G8：FAST_MODE 注入——成功请求不落库，仅固定上限内存聚合（PRD-G8）
+    event_recorder = EventRecorder(
+        store, writer=writer, fast_mode=settings.fast_mode
+    )
     pool = AccountPool(
         accounts=accounts,
         max_consecutive_failures=settings.max_consecutive_failures,

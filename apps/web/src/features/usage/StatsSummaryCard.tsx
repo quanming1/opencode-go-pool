@@ -37,6 +37,11 @@ export function StatsSummaryCard({ stats }: { stats: StatsResponse }) {
 
   return (
     <div className="stats-summary" data-testid="stats-summary">
+      {stats.mode === "fast" && (
+        <div className="stats-fast-mode" data-testid="stats-fast-mode" title={t("stats.fastMode")}>
+          FAST
+        </div>
+      )}
       <StatItem label={t("stats.requests")} value={totalReq.toLocaleString()} testid="summary-requests" />
       <StatItem
         label={t("stats.successRate")}

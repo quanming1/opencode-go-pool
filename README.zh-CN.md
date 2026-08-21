@@ -123,6 +123,7 @@ curl http://127.0.0.1:48700/api/v1/responses \
 | `DB_PATH` | data/opencode_pool.db | SQLite 持久化路径 |
 | `QUOTA_CACHE_TTL_SECONDS` | 60 | 额度查询缓存秒数（缓存期内不重复访问上游） |
 | `QUOTA_TIMEOUT_SECONDS` | 10 | 单账号额度查询超时（秒） |
+| `FAST_MODE` | false | 性能优先模式：成功请求只做固定上限内存聚合（168 小时窗口），不写 SQLite——不产生逐条用量/请求事件；失败/切换/冷却/禁用事件仍完整落库；重启后成功逐条历史不保留；`/api/stats` 返回 `mode: "fast"`，监控台显示 FAST 徽章标注口径 |
 
 账号配置见 `apps/backend/config/accounts.example.yaml`（`api_key` 用 `${ENV_VAR}`（如 `${OPENCODE_GO_KEY_1}`）引用环境变量）。密钥只存本地 `.env` / 环境变量，绝不入库。
 

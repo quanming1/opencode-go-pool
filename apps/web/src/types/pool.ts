@@ -106,6 +106,8 @@ export interface StatsResponse {
   error_types?: ErrorTypeCount[];
   /** E4：事件派生汇总（可选，兼容旧后端）。 */
   summary?: StatsSummary;
+  /** G8：统计模式（fast=内存聚合口径，normal=持久化口径；可选，兼容旧后端）。 */
+  mode?: "fast" | "normal";
 }
 
 export interface EventItem {
