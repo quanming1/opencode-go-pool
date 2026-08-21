@@ -6,7 +6,7 @@
 
 ### Added
 
-（暂无）
+- G7 速度对齐直连 · 转发热路径零阻塞改造：新建 `store/writer.py`（SQLiteWriter 单写线程队列）——事件/用量落库从"事件循环内同步 SQLite 写"改为 **record 仅入队零阻塞**，lifespan 收尾 flush+close；`EventRecorder`/`UsageRecorder` 双模式（默认同步直写兼容测试，注入 writer 启用异步）；`/api/stats` 聚合加 **3s TTL 缓存**（监控台 10s 轮询命中、零事件循环占用）并 `asyncio.to_thread` 移出事件循环，`/api/events`、`/api/logs/overview` 查询同样 to_thread——**转发热路径（含流式 chunk 间隔）与监控台轮询彻底互不阻塞**；出站 HTTP/2 尝试放弃（需额外 h2 依赖、无实质收益，PRD 变更记录留痕）。验收：本地隔离实验直连 vs 池子首 chunk 中位差 **8.2ms**（趋近物理下限）、流式 chunk 间隔与直连一致；真实上游剩余差异为出站网络路径（CDN 边缘/上游节点）而非代理本地；pytest 144（含 test_writer 6 例）+ ruff 0 + 前端零改动全绿（PR #115 合并，CI 三 job 全绿）
 
 ## [0.4.0] - 2026-08-21
 
