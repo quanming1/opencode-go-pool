@@ -344,3 +344,18 @@ stages:
           - apps/backend/src/opencode_pool/app.py
           - apps/backend/src/opencode_pool/proxy/forwarder.py
         acceptance: 转发热路径零同步 IO——事件/用量落库改单写线程队列（record 仅入队，默认同步直写兼容测试）；/api/stats 3s TTL 缓存 + asyncio.to_thread；/api/events、/api/logs/overview 查询 to_thread；出站 HTTP/2 尝试；端到端基准：直连 vs 优化池多轮交替首 chunk 中位差 ≤50ms；pytest + ruff 0 + 新增 writer 单测 + 前端全绿；运行中 48700 不受影响（独立实例验证）；CI 三 job 全绿
+      - id: G8
+        title: 极致性能模式 · 成功请求快路径与资源上限
+        status: in_progress
+        date: 2026-08-21
+        prd: docs/prd/PRD-G8-fast-mode.md
+        prd_status: 草稿
+        modules:
+          - apps/backend/src/opencode_pool/config.py
+          - apps/backend/src/opencode_pool/metrics/fast.py
+          - apps/backend/src/opencode_pool/store/writer.py
+          - apps/backend/src/opencode_pool/usage/recorder.py
+          - apps/backend/src/opencode_pool/events/recorder.py
+          - apps/backend/src/opencode_pool/proxy/forwarder.py
+          - apps/backend/src/opencode_pool/app.py
+        acceptance: FAST_MODE 下成功流不构造/持久化逐条 usage/event，仅更新固定上限内存聚合；失败/切换/冷却/禁用事件保留；SQLiteWriter 有界队列满载不阻塞且不无限增长；stats 保持现有字段契约并标注 FAST_MODE 数据口径；本地同 fake 上游控制实验代理额外开销 ≤10ms；pytest/ruff/前端全绿；运行中 48700 不受影响；CI 三 job 全绿
