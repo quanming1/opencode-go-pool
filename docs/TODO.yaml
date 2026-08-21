@@ -328,3 +328,19 @@ stages:
           - apps/backend/src/opencode_pool/api/events.py
           - apps/backend/src/opencode_pool/api/accounts.py
         acceptance: 三项收敛完成且接口行为不变——① proxy/router.py 3 组 alias handler 与主 handler 合并为同一函数叠双路由（/api/v1/* 与 /v1/* 全部保持 200）；② api/ 模块间重复 helper（_json_response ×2、_get_recorder ×2）提取到 api/_common.py，keys/usage/events 引用统一；③ require_gateway_key_strict 空壳合并到 require_gateway_key 并更新 accounts/keys 共 7 处引用；grep 无残留（alias 函数/重复 helper/strict 名）；后端 pytest + ruff 0 + 双路径端点回归 200 + vitest/eslint/build 全绿；文档同步（README API 汇总）
+      - id: G7
+        title: 速度对齐直连 · 转发热路径零阻塞改造
+        status: in_progress
+        date: 2026-08-21
+        prd: docs/prd/PRD-G7-zero-blocking.md
+        prd_status: 草稿
+        modules:
+          - apps/backend/src/opencode_pool/store/writer.py
+          - apps/backend/src/opencode_pool/events/recorder.py
+          - apps/backend/src/opencode_pool/usage/recorder.py
+          - apps/backend/src/opencode_pool/api/usage.py
+          - apps/backend/src/opencode_pool/api/events.py
+          - apps/backend/src/opencode_pool/api/logs.py
+          - apps/backend/src/opencode_pool/app.py
+          - apps/backend/src/opencode_pool/proxy/forwarder.py
+        acceptance: 转发热路径零同步 IO——事件/用量落库改单写线程队列（record 仅入队，默认同步直写兼容测试）；/api/stats 3s TTL 缓存 + asyncio.to_thread；/api/events、/api/logs/overview 查询 to_thread；出站 HTTP/2 尝试；端到端基准：直连 vs 优化池多轮交替首 chunk 中位差 ≤50ms；pytest + ruff 0 + 新增 writer 单测 + 前端全绿；运行中 48700 不受影响（独立实例验证）；CI 三 job 全绿
