@@ -1,7 +1,10 @@
 /* 全局样式：白色简洁风——白底、直角、无阴影（UI 规范见 AGENTS.md §5）。 */
 
+/* 颜色 token 单源见 src/theme/tokens.ts（tokens.test.ts 断言本文件与之一致，防漂移）。
+   CSS 变量内联值用于浏览器原生主题切换，JS 侧取值走 theme/tokens.ts。 */
 :root {
   --color-bg: #ffffff;
+  --color-bg-subtle: #f9fafb;
   --color-text: #1f2937;
   --color-text-secondary: #6b7280;
   --color-border: #e5e7eb;
@@ -12,6 +15,19 @@
   /* 全站无圆角、无阴影 */
   --radius: 0;
   --shadow: none;
+}
+
+/* E2 深色主题：html[data-theme="dark"] 覆盖全部颜色变量（直角/无阴影约束不变）；色值同见 tokens.ts */
+html[data-theme="dark"] {
+  --color-bg: #111827;
+  --color-bg-subtle: #1f2937;
+  --color-text: #f9fafb;
+  --color-text-secondary: #9ca3af;
+  --color-border: #374151;
+  --color-accent: #3b82f6;
+  --color-ok: #22c55e;
+  --color-warn: #f59e0b;
+  --color-danger: #ef4444;
 }
 
 * {
@@ -45,6 +61,16 @@ body {
   border-bottom: 1px solid var(--color-border);
 }
 
+.page-switch {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.page-switch .btn {
+  padding: 2px 8px;
+}
+
 .page-title {
   font-size: 18px;
   font-weight: 600;
@@ -74,10 +100,6 @@ body {
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 8px;
-}
-
-.card-text {
-  color: var(--color-text-secondary);
 }
 
 /* 图表容器 */

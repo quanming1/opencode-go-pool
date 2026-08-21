@@ -18,6 +18,8 @@
 - **额度展示**：官方 OpenCode Go `/usage` 接口按账号实时滚动/周/月额度，服务端 TTL 缓存 + 单账号降级。
 - **监控大盘**：账号状态卡、用量与轮换趋势图（ECharts）、额度总览、统一事件时间线（请求/冷却/切换/失效/网关 key 生命周期）。
 - **一键启动**：`python start.py` 清理 48700/48701 端口旧进程（含 uvicorn --reload 孤儿进程）并静默启动前后端，带健康检查。
+- **CI/CD 自动打包**：每次 push/PR 自动构建后端 wheel 与前端 dist，组装成完整发布包并验证（全新 venv 安装 + 资源完整性），产物上传为可下载 artifact；打 `v*` tag 时自动发布到对应 GitHub Release。
+- **多语言 + 主题（颜色 token 化）**：内置中/英切换与亮/暗主题；全站颜色统一为 CSS 变量，并由 `src/theme/tokens.ts` 提供 JS 侧镜像（ECharts 等 JS 消费端的单一取色来源；CSS 变量与 TS token 一致性由单测强制）。
 
 ## 架构
 
@@ -143,8 +145,18 @@ opencode-go-pool/
 - 任务清单：`docs/TODO.yaml`（唯一执行依据）
 - 推进办法：`docs/PROCESS.md`（六步闭环）
 - 阶段 PRD：`docs/prd/`
-- CI：push/PR 自动跑 backend（pytest + ruff）/ web（eslint + vitest + build）
+- CI/CD：push/PR 自动跑 backend（pytest + ruff + 构建 wheel）/ web（eslint + vitest + build），随后 pack job 组装并验证完整发布包、上传 artifact（见 [CI/CD 打包验证](#cicd-打包验证)）
 - 分支：Git Flow + 全 PR 流（main/develop 不直接提交；feature 分支经 PR 合入，commit scope 强制关联阶段 id）
+
+## CI/CD 打包验证
+
+每次 push/PR 运行三个 job（`.github/workflows/ci.yml`）：
+
+1. **backend**：lint / test / `python -m build` 产出 `opencode_pool` wheel（上传 artifact `backend-dist`）；
+2. **web**：lint / test / 构建 `dist/`（上传 artifact `web-dist`）；
+3. **pack**：下载两产物后运行 `scripts/package_release.py`（纯标准库，本地也可跑）组装 `opencode-go-pool-<version>.zip`（后端 wheel + 前端 dist + start.py + 文档 + 示例配置）。脚本会校验包：wheel 能在全新临时 venv 安装并 import 出版本一致、`dist/index.html` 引用的资源全部在包内存在。最终 zip 上传为 artifact `release-package`。
+
+推送 `v*` tag 时，发布包还会自动上传到同 tag 的 GitHub Release（不存在则自动创建），每个版本都带一个开箱即用的归档。
 
 ## 合规边界
 

@@ -134,6 +134,24 @@ describe("useAccountPolling", () => {
     unmount();
   });
 
+  it("切换统计周期后 fetchStats 带新 hours，且 statsHours 更新", async () => {
+    mFetchAccounts.mockResolvedValue(sample.accounts);
+    mFetchStats.mockResolvedValue(sample.stats);
+    mFetchQuota.mockResolvedValue(sample.quota);
+    mFetchLogsOverview.mockResolvedValue(overviewSample);
+
+    const { result, unmount } = renderHook(() => useAccountPolling(50));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mFetchStats).toHaveBeenLastCalledWith(24);
+
+    await act(async () => {
+      result.current.setStatsHours(168);
+    });
+    await waitFor(() => expect(mFetchStats).toHaveBeenLastCalledWith(168));
+    expect(result.current.statsHours).toBe(168);
+    unmount();
+  });
+
   it("强制刷新额度传 force=true，失败保留旧数据", async () => {
     mFetchAccounts.mockResolvedValue(sample.accounts);
     mFetchStats.mockResolvedValue(sample.stats);

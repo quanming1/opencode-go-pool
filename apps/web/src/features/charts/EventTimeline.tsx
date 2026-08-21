@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchEventsPage } from "../../services/api";
 import type { EventItem } from "../../types/pool";
+import { useI18n } from "../../i18n";
 import { buildSummary, labelOf } from "./eventSummary";
 
 function formatTs(ts: string): string {
   try {
-    return new Date(ts).toLocaleString("zh-CN", { hour12: false });
+    return new Date(ts).toLocaleString(undefined, { hour12: false });
   } catch {
     return ts;
   }
@@ -14,18 +15,19 @@ function formatTs(ts: string): string {
 const PAGE_SIZE = 20;
 const AUTO_REFRESH_MS = 10_000;
 
-/** 把事件 data/meta 的字段展开成可读行（D1 FR6 丰富字段）。 */
+/** 把事件 data/meta 的字段展开成可读行（D1 FR6 丰富字段）。
+
+ * meta 与 data 可能同名字段（如 request_id）——同名只保留一处，避免 React key 冲突。
+ */
 function detailRows(event: EventItem): Array<[string, string]> {
   const rows: Array<[string, string]> = [];
+  const seen = new Set<string>();
   const data = event.data ?? {};
   const meta = event.meta ?? {};
   const push = (k: string, v: unknown): void => {
-    if (v === undefined || v === null) return;
-    if (typeof v === "object") {
-      rows.push([k, JSON.stringify(v)]);
-    } else {
-      rows.push([k, String(v)]);
-    }
+    if (v === undefined || v === null || seen.has(k)) return;
+    seen.add(k);
+    rows.push([k, typeof v === "object" ? JSON.stringify(v) : String(v)]);
   };
   push("request_id", meta.request_id);
   push("source", meta.source);
@@ -34,8 +36,9 @@ function detailRows(event: EventItem): Array<[string, string]> {
   return rows;
 }
 
-/** 统一事件时间线（C4 + D1 FR5/FR6）：分页展示 + 丰富字段详情。 */
+/** 统一事件时间线（C4 + D1 FR5/FR6）：分页展示 + 丰富字段详情（E2 i18n）。 */
 export function EventTimeline() {
+  const { t } = useI18n();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -71,25 +74,26 @@ export function EventTimeline() {
 
   const onPrev = (): void => void load(Math.max(0, offset - PAGE_SIZE));
   const onNext = (): void => void load(offset + PAGE_SIZE);
+  const page = Math.floor(offset / PAGE_SIZE) + 1;
 
   return (
     <div className="event-timeline" data-testid="event-timeline">
-      {error && <p className="dashboard-error">加载事件失败: {error}</p>}
+      {error && <p className="dashboard-error">{t("events.loadFailed")}: {error}</p>}
       {events.length === 0 && !loading ? (
-        <p className="dashboard-empty">暂无事件</p>
+        <p className="dashboard-empty">{t("events.empty")}</p>
       ) : (
         <ul className="event-timeline__list">
           {events.map((e, idx) => (
             <li className="event-timeline__item" key={`${e.time}-${idx}`}>
               <span className="event-timeline__time">{formatTs(e.time)}</span>
               <span className={`event-type event-type--${e.type}`}>
-                {labelOf(e.type)}
+                {labelOf(e.type, t)}
               </span>
               <span className="event-timeline__summary">
-                {buildSummary(e.type, e.data)}
+                {buildSummary(e.type, e.data, t)}
               </span>
               <details className="event-timeline__detail">
-                <summary>字段详情</summary>
+                <summary>{t("events.detail")}</summary>
                 <dl className="event-timeline__fields">
                   {detailRows(e).map(([k, v]) => (
                     <div className="event-timeline__field" key={k}>
@@ -111,10 +115,10 @@ export function EventTimeline() {
           onClick={onPrev}
           disabled={offset <= 0 || loading}
         >
-          上一页
+          {t("events.prev")}
         </button>
         <span className="event-timeline__page" data-testid="events-offset">
-          第 {Math.floor(offset / PAGE_SIZE) + 1} 页（共 {offset} 条已浏览）
+          {t("events.page", { page })}（{t("events.pageOffset", { offset })}）
         </span>
         <button
           type="button"
@@ -123,7 +127,7 @@ export function EventTimeline() {
           onClick={onNext}
           disabled={!hasMore || loading}
         >
-          下一页
+          {t("events.next")}
         </button>
       </div>
     </div>

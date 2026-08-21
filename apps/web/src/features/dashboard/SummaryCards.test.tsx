@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { SummaryCards } from "./SummaryCards";
 import type { PoolAccount, QuotaSummary } from "../../types/pool";
+import { I18nProvider } from "../../i18n";
 
 const accounts: PoolAccount[] = [
   {
@@ -46,7 +47,7 @@ describe("SummaryCards C5 额度总览", () => {
       },
     ];
 
-    render(<SummaryCards accounts={accountsWithStatuses} quotaSummary={summary} />);
+    render(<I18nProvider><SummaryCards accounts={accountsWithStatuses} quotaSummary={summary} /></I18nProvider>);
 
     expect(screen.getByTestId("summary-status")).toBeDefined();
     expect(screen.getByTestId("summary-available")).toHaveTextContent("1");
@@ -78,7 +79,7 @@ describe("SummaryCards C5 额度总览", () => {
   });
 
   it("无额度数据时保留状态框且不展示额度总览卡", () => {
-    render(<SummaryCards accounts={accounts} />);
+    render(<I18nProvider><SummaryCards accounts={accounts} /></I18nProvider>);
     expect(screen.getByTestId("summary-status")).toBeDefined();
     expect(screen.queryByTestId("summary-quota")).toBeNull();
   });

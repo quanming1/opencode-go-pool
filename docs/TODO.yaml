@@ -179,6 +179,75 @@ stages:
           - apps/web/src/features/charts/UsageCharts.tsx
           - apps/web/src/services/api.ts
         acceptance: 请求日志记录模型与两种协议各自的 token 字段；按账号×模型聚合统计；当前活跃 Key 与剩余使用时长推测；事件日志 offset 分页；前端时间线丰富字段+分页+模型/账号负载图表；pytest/vitest/build 全绿
+  # ---- E 前端体验优化 ----
+  - id: E
+    name: 前端体验优化
+    steps:
+      - id: E1
+        title: 响应式开发（多分辨率/窗口尺寸下不挤压、不溢出）
+        status: done
+        date: 2026-08-20
+        prd: docs/prd/PRD-E1-responsive.md
+        prd_status: 已验收
+        modules:
+          - apps/web/src/layout.css
+          - apps/web/src/index.css
+          - apps/web/src/features/dashboard/dashboard.css
+          - apps/web/src/App.tsx
+          - apps/web/src/components/Sidebar.tsx
+        acceptance: 建立 1280/1024/768/576 断点体系；窄屏（≤576）侧栏折叠为顶部 tab、各网格单列、表格横向可滚动；playwright 实测 360/480/768/1024/1440 各视口无横向溢出、关键区块文字不被挤压；vitest/eslint/build 全绿
+      - id: E2
+        title: 中英文切换 + 主题切换（light/dark）
+        status: done
+        date: 2026-08-20
+        prd: docs/prd/PRD-E2-i18n-theme.md
+        prd_status: 已验收
+        modules:
+          - apps/web/src/i18n/
+          - apps/web/src/index.css
+          - apps/web/src/layout.css
+          - apps/web/src/features/
+          - apps/web/src/components/
+          - apps/web/src/App.tsx
+        acceptance: 自研轻量 i18n（zh/en 字典 + context，不新增依赖）；header 语言切换控件 + localStorage 持久化；CSS 变量双主题（:root 浅色 + [data-theme=dark] 深色）全站随动 + ECharts 动态取色；playwright 断言切 en 后关键文案英文、切 dark 后 html[data-theme] 与背景变量正确；vitest/eslint/build 全绿
+      - id: E3
+        title: 主题切换 · 颜色 token 化
+        status: done
+        date: 2026-08-21
+        prd: docs/prd/PRD-E3-color-tokens.md
+        prd_status: 已验收
+        modules:
+          - apps/web/src/theme/tokens.ts
+          - apps/web/src/i18n/index.tsx
+          - apps/web/src/features/charts/
+          - apps/web/src/index.css
+        acceptance: 颜色 token 集中到 src/theme/tokens.ts（light/dark 各 9 色 + chart 派生色板），ECharts 等 JS 侧无硬编码 hex；tokens.test.ts 断言 tokens 与 index.css 的 CSS 变量 18 对完全一致（含负例验证）；vitest 44/eslint 0/build 全绿；playwright 实测 light/dark 主题联动（背景/文字/三张图 canvas）正常；README 同步
+      - id: E4
+        title: 图表优化 · 更丰富数据展示
+        status: done
+        date: 2026-08-21
+        prd: docs/prd/PRD-E4-richer-charts.md
+        prd_status: 已验收
+        modules:
+          - apps/backend/src/opencode_pool/store/sqlite_store.py
+          - apps/backend/src/opencode_pool/usage/recorder.py
+          - apps/web/src/features/charts/
+          - apps/web/src/features/usage/
+          - apps/web/src/i18n/messages.ts
+          - apps/web/src/types/pool.ts
+        acceptance: /api/stats 扩展 success_count/success_rate + error_types + summary（耗时/协议/事件计数，events 派生不改表）；前端三图富化 + 运行汇总卡 + 协议/错误类型新图；pytest 138 + vitest 47 + eslint 0 + build 全绿；独立实例实测新字段、运行中 48700 未重启（前端旧字段容错）
+      - id: E5
+        title: 图表再深化 · 周期切换与构成展示（纯前端）
+        status: done
+        date: 2026-08-21
+        prd: docs/prd/PRD-E5-chart-enrich.md
+        prd_status: 已验收
+        modules:
+          - apps/web/src/features/dashboard/useAccountPolling.ts
+          - apps/web/src/features/charts/
+          - apps/web/src/features/usage/UsagePanel.tsx
+          - apps/web/src/i18n/messages.ts
+        acceptance: 统计周期切换（24h/3d/7d，复用 /api/stats?hours=，零后端改动）；用量趋势 Token 拆 prompt/completion 堆叠 + X 轴自适应（>48h MM-DD HH:MM）；新增小时级成功率趋势图（旧字段回退推算、空桶断点）与账号 Token 占比环图；「构成分析」栅格四图自适应排布；ChartPalette 补 warn；vitest 55 + eslint 0 + build 全绿；运行中 48700 后端不受影响、成功率/Token 占比基于现有数据真实上屏
   # ---- G 收尾 ----
   - id: G
     name: 收尾
@@ -204,3 +273,58 @@ stages:
           - apps/web/README.md
           - docs/usage.md
         acceptance: 四文档齐备（根/后端/前端/使用手册）+ 命令实测可跑 + API 汇总覆盖全部端点
+      - id: G3
+        title: CICD 自动打包验证
+        status: done
+        date: 2026-08-20
+        prd: docs/prd/PRD-G3-ci-pack.md
+        prd_status: 已验收
+        modules:
+          - .github/workflows/ci.yml
+          - scripts/package_release.py
+        acceptance: CI 三 job（backend 产 wheel / web 传 dist / pack 组装+真实校验并上传 release-package）全绿，artifact 可下载；tag v* 自动挂 GitHub Release；本地与 CI 双重验证 wheel 可安装、dist 资源完整；README/CONTRIBUTING 同步
+      - id: G4
+        title: 代码优化 · 去除冗余代码
+        status: done
+        date: 2026-08-21
+        prd: docs/prd/PRD-G4-dead-code-cleanup.md
+        prd_status: 已验收
+        modules:
+          - apps/backend/src/opencode_pool/accounts/pool.py
+          - apps/backend/src/opencode_pool/store/sqlite_store.py
+          - apps/backend/src/opencode_pool/logging_setup.py
+          - apps/web/src/i18n/messages.ts
+          - apps/web/src/index.css
+        acceptance: 扫描确认的 5 处死代码全部清除（describe_key / has_any_gateway_key / logging_setup 模块 / chart.tooltip.success 孤儿 key / .card-text 死类），连带 import 同步移除；复核扫描无新孤儿；pytest 138 + ruff 0 + vitest 55 + eslint 0 + build 全绿；playwright 抽查无回归
+      - id: G5
+        title: 代码优化 · 去除冗余代码（第二轮：图表样板收敛 + 死接口清理）
+        status: done
+        date: 2026-08-21
+        prd: docs/prd/PRD-G5-chart-refactor.md
+        prd_status: 已验收
+        modules:
+          - apps/web/src/features/charts/useEChart.ts
+          - apps/web/src/features/charts/UsageCharts.tsx
+          - apps/web/src/features/charts/ModelUsageChart.tsx
+          - apps/web/src/features/charts/AccountLoadChart.tsx
+          - apps/web/src/features/charts/ProtocolChart.tsx
+          - apps/web/src/features/charts/ErrorTypeChart.tsx
+          - apps/web/src/features/charts/SuccessRateTrendChart.tsx
+          - apps/web/src/features/charts/AccountTokenShareChart.tsx
+          - apps/web/src/features/dashboard/useAccountPolling.ts
+        acceptance: 7 个 ECharts 组件的 init/resize/dispose 样板收敛为 useEChart（轮询 stats 更新不再重建实例）；AccountsState 死接口删除且全库无引用；vitest 全过 + eslint 0 + build 通过；playwright 实测 7 图渲染无回归
+      - id: G6
+        title: 优化架构 · 后端 API 层结构性冗余收敛
+        status: done
+        date: 2026-08-21
+        prd: docs/prd/PRD-G6-arch-cleanup.md
+        prd_status: 已验收
+        modules:
+          - apps/backend/src/opencode_pool/proxy/router.py
+          - apps/backend/src/opencode_pool/api/_common.py
+          - apps/backend/src/opencode_pool/api/auth.py
+          - apps/backend/src/opencode_pool/api/keys.py
+          - apps/backend/src/opencode_pool/api/usage.py
+          - apps/backend/src/opencode_pool/api/events.py
+          - apps/backend/src/opencode_pool/api/accounts.py
+        acceptance: 三项收敛完成且接口行为不变——① proxy/router.py 3 组 alias handler 与主 handler 合并为同一函数叠双路由（/api/v1/* 与 /v1/* 全部保持 200）；② api/ 模块间重复 helper（_json_response ×2、_get_recorder ×2）提取到 api/_common.py，keys/usage/events 引用统一；③ require_gateway_key_strict 空壳合并到 require_gateway_key 并更新 accounts/keys 共 7 处引用；grep 无残留（alias 函数/重复 helper/strict 名）；后端 pytest + ruff 0 + 双路径端点回归 200 + vitest/eslint/build 全绿；文档同步（README API 汇总）

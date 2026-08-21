@@ -19,7 +19,7 @@ import threading
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
-from opencode_pool.accounts.models import Account, AccountStatus, mask_api_key
+from opencode_pool.accounts.models import Account, AccountStatus
 from opencode_pool.events.recorder import EventType
 
 logger = logging.getLogger("opencode_pool.accounts.pool")
@@ -349,12 +349,3 @@ class AccountPool:
                 self._store.save_state(a)
             except Exception:  # noqa: BLE001 - DB 降级不崩服务
                 pass
-
-    # ---- 日志用脱敏 ----
-
-    def describe_key(self, account_id: str) -> str:
-        """用于日志的脱敏密钥（仅末 4 位）。"""
-        a = self._accounts.get(account_id)
-        if a is None:
-            return "<unknown>"
-        return mask_api_key(a.api_key)

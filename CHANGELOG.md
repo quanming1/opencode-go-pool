@@ -2,6 +2,26 @@
 
 本项目按 Rondo 方法推进：阶段收尾三联动（PRD 已验收 + TODO done + CHANGELOG 追加）。
 
+## [未发布]
+
+### Added
+
+（暂无）
+
+## [0.4.0] - 2026-08-21
+
+### Added
+
+- G6 优化架构 · 后端 API 层结构性冗余收敛（接口行为零变化）：① `/api/v1/*` 与 `/v1/*` 双路径合并到同一 handler（同一函数叠两个 APIRouter 的 route 装饰器，删除 3 个重复 alias handler，openapi 仍保留 6 条路径）；② 新建 `api/_common.py`（`json_response` + `get_state_service`）收敛散落在 `keys.py`/`usage.py`/`events.py` 的 `_json_response`×2、`_get_recorder`×2 重复实现；③ 删除 `require_gateway_key_strict` 纯透传空壳并更新 `accounts.py`/`keys.py` 共 7 处引用统一走 `require_gateway_key`。grep 六项残留 0 命中；pytest 138 + ruff 0（双路径/鉴权用例覆盖无回归）；独立实例端到端 /models 主别名内容一致、四转发路径可达；前端零改动 vitest 60 + eslint 0 + build 全绿（PR #106 合并，CI 三 job 全绿）
+- G5 代码优化 · 去除冗余代码（第二轮）：新增 `useEChart` hook（`getInstanceByDom` 复用已有实例 + `chartRef` 持引用 + `setOption(notMerge)` 全量更新 + 统一 window resize 监听/卸载 dispose）收敛 7 个 ECharts 图表组件的 init/resize/dispose 生命周期样板——大盘 10s 轮询 stats 更新时不再反复销毁重建 canvas（性能）；7 图全部迁移（Usage / ModelUsage / AccountLoad / Protocol / ErrorType / SuccessRateTrend / AccountTokenShare），净删 109 行重复样板；删除从未使用的 `AccountsState` 接口（useAccountPolling.ts）；新增 useEChart 单测 5 例（init 一次 / deps 复用 / resize / 卸载 dispose / 已有实例复用）；vitest 60 + eslint 0 + build 通过，playwright 实测 5 图渲染 / resize / 主题切换 / 周期切换无回归（PR #102 合并，CI 三 job 全绿）
+- G4 代码优化 · 去除冗余代码：扫描清理 5 处确凿死代码——后端 `AccountPool.describe_key`（含「日志用脱敏」注释块与连带 `mask_api_key` import）、`AccountStore.has_any_gateway_key`、`logging_setup.py` 整个模块（`setup_logging` 无消费者）；前端 i18n 孤儿 key `chart.tooltip.success`（E4 遗留）与 CSS 死类 `.card-text`；复核扫描确认无新孤儿（FastAPI 路由 / pytest / vitest 文件按设计保留）；pytest 138 + ruff 0 + vitest 55 + eslint 0 + build 全绿，playwright 抽查无回归（PR #98 合并，CI 三 job 全绿）
+- E5 图表再深化 · 周期切换与构成展示（纯前端、零后端改动）：`/api/stats` 统计周期可切换（24h/3d/7d，useAccountPolling 暴露 statsHours/setStatsHours，复用后端已有 `?hours=` 1..168）；用量趋势图 Token 拆「输入/输出」堆叠柱（prompt=ok 绿/completion=warn 橙）、X 轴标签随窗口自适应（>48h 显示 MM-DD HH:MM）；新增小时级「成功率趋势」折线（旧后端无 success 字段时按 request-error 回退推算、空桶断点）与「账号 Token 占比」环图；图区改「构成分析」栅格（成功率/Token 占比/协议/错误类型四图 auto-fit 自适应，窄屏单列）；ChartPalette 补 warn 色；vitest 55 + eslint 0 + build 通过，playwright 实测周期切换与三新图基于运行中旧后端数据真实上屏（PR #94 合并，CI 三 job 全绿）
+- E4 图表优化 · 更丰富数据展示：`/api/stats` 扩展四类新维度——totals/per_account/per_model/buckets 补 `success_count` 与 `success_rate`（上游尝试级成功率）、顶层 `error_types`（错误类型分布）、`summary`（基于 events 近 500 条派生：request 耗时 avg/p95/max、协议分布 responses/chat/completions、key_switch/冷却/禁用等事件计数）；前端三图富化（用量趋势加错误系列+成功率 tooltip、模型分布加错误系列+token/成功率、账号负载加成功率折线+token tooltip）、新增「运行汇总」卡（总请求/成功率/总 token/平均耗时/活跃模型/账号）与协议分布（Pie）/错误类型（Bar）两张新图；新字段全 optional 兼容旧后端（无数据时占位 N/A 而非误导）；pytest 138 + vitest 47 + eslint 0 + build 通过，独立实例实测新字段、运行中 48700 未重启（PR #90 合并，CI 三 job 全绿）
+- E3 主题切换 · 颜色 token 化：新增 `src/theme/tokens.ts` 作为 JS 侧颜色 token 唯一入口（light/dark 各 9 色 + `chartColors` 图表派生色板，对齐 index.css 的 `:root`/`[data-theme=dark]` CSS 变量）；`chartColors` 硬编码 hex（原 i18n/index.tsx 10 处）移入 tokens 派生，三个 ECharts 组件统一从 `theme/tokens` 取色；新增 `tokens.test.ts` 断言 TS token 与 CSS 变量 18 对完全一致（防双源漂移，含负例验证）；devDependencies 声明 `@types/node`；vitest 44 + eslint 0 + build 通过，playwright 实测两主题联动（背景/文字/图表 canvas）无回归（PR #86 合并，CI 三 job 全绿）
+- G3 CICD 自动打包验证：ci.yml 扩展为 backend/web/pack 三 job 依赖链——backend 构建 wheel、web 构建 dist 并上传 artifact；pack job 用新增 `scripts/package_release.py`（纯标准库，本地可跑）把后端 wheel + 前端 dist + start.py/文档/示例配置组装成 `opencode-go-pool-<version>.zip`，并做真实校验（全新临时 venv 安装 wheel + import 版本断言、dist/index.html 引用的 /assets 资源全在包内、根文件清单断言）；产物上传 artifact `release-package`，推 `v*` tag 自动挂到对应 GitHub Release。pyproject dev 依赖补 build 包；README/README.zh-CN/CONTRIBUTING 同步（PR #82 合并，CI 三 job 全绿）
+- E2 中英文切换 + 主题切换：自研轻量 i18n（zh/en 字典 + I18nProvider/useI18n，localStorage 持久化，未新增依赖）；CSS 变量双主题（:root 浅色 + `html[data-theme="dark"]` 深色，全站含 ECharts 动态取色）；header 语言/主题切换控件；13 个组件文案全部 t() 化、字典 key 一致性单测（vitest 34→38、eslint 0、build 通过；playwright 实测切 EN/Dark 即时生效且刷新持久化、无首帧闪烁）
+- E1 响应式开发：建立 1024/768/576 断点体系（收敛旧 900/720）；窄屏（≤576）侧栏折叠为顶部 tab、内容区占满全宽；账号卡/概览/额度均值网格列改 `minmax(0,1fr)` 防内容撑破；keys 表格窄屏容器横滚；事件时间线小屏可换行；账号卡头部文本省略保护。playwright 实测 360/480/768/1024/1440 五视口无横向溢出（vitest 34 + eslint 0 + build 通过）
+
 ## [0.3.0] - 2026-08-20
 
 ### Added
@@ -40,7 +60,3 @@
 ### Fixed
 
 - 账号密钥支持 apps/backend/.env.keys（KEY=VALUE）：${VAR} 解析顺序 = 进程环境变量 > .env.keys；密钥与应用配置（.env，严格模式）职责分离（B1 变更记录留痕）
-
-## [未发布]
-
-（等待下一阶段）

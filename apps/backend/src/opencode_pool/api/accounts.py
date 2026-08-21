@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, Request
 
-from opencode_pool.api.auth import require_gateway_key_strict
+from opencode_pool.api.auth import require_gateway_key
 
 router = APIRouter(prefix="/api", tags=["accounts"])
 
@@ -14,7 +14,7 @@ async def list_accounts(request: Request) -> dict:
     return {"accounts": pool.public_views()}
 
 
-@router.post("/accounts/{account_id}/clear", dependencies=[Depends(require_gateway_key_strict)])
+@router.post("/accounts/{account_id}/clear", dependencies=[Depends(require_gateway_key)])
 async def clear_account(account_id: str, request: Request) -> dict:
     """清除冷却/错误计数 → healthy（PRD-C3 FR5）。"""
     pool = request.app.state.account_pool
@@ -26,7 +26,7 @@ async def clear_account(account_id: str, request: Request) -> dict:
 
 
 @router.post(
-    "/accounts/{account_id}/disable", dependencies=[Depends(require_gateway_key_strict)]
+    "/accounts/{account_id}/disable", dependencies=[Depends(require_gateway_key)]
 )
 async def disable_account(account_id: str, request: Request) -> dict:
     """禁用账号（不参与选号）。"""
@@ -39,7 +39,7 @@ async def disable_account(account_id: str, request: Request) -> dict:
 
 
 @router.post(
-    "/accounts/{account_id}/enable", dependencies=[Depends(require_gateway_key_strict)]
+    "/accounts/{account_id}/enable", dependencies=[Depends(require_gateway_key)]
 )
 async def enable_account(account_id: str, request: Request) -> dict:
     """启用账号。"""

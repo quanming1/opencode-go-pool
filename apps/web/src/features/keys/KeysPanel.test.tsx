@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { KeysPanel } from "./KeysPanel";
 import { createGatewayKey, fetchGatewayKeys, revokeGatewayKey } from "../../services/api";
+import { I18nProvider } from "../../i18n";
 
 vi.mock("../../services/api", () => ({
   fetchGatewayKeys: vi.fn(),
@@ -23,7 +24,7 @@ beforeEach(() => {
 describe("KeysPanel", () => {
   it("空列表显示空态文案", async () => {
     mFetch.mockResolvedValue([]);
-    render(<KeysPanel />);
+    render(<I18nProvider><KeysPanel /></I18nProvider>);
     await waitFor(() => expect(mFetch).toHaveBeenCalled());
     expect(screen.getByText(/暂无 key/)).toBeDefined();
   });
@@ -33,7 +34,7 @@ describe("KeysPanel", () => {
       { id: 1, label: "ftre", created_at: "2026-08-20T10:00:00", revoked_at: null },
       { id: 2, label: "old", created_at: "2026-08-19T10:00:00", revoked_at: "2026-08-20T09:00:00" },
     ]);
-    render(<KeysPanel />);
+    render(<I18nProvider><KeysPanel /></I18nProvider>);
     await waitFor(() => expect(screen.getByText("ftre")).toBeDefined());
     expect(screen.getByText("有效")).toBeDefined();
     expect(screen.getByText("已吊销")).toBeDefined();
@@ -51,7 +52,7 @@ describe("KeysPanel", () => {
     const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
     Object.assign(navigator, { clipboard });
 
-    render(<KeysPanel />);
+    render(<I18nProvider><KeysPanel /></I18nProvider>);
     fireEvent.change(screen.getByTestId("key-label-input"), { target: { value: "ftre" } });
     fireEvent.click(screen.getByTestId("key-create-btn"));
 
@@ -68,7 +69,7 @@ describe("KeysPanel", () => {
     mFetch.mockResolvedValue([
       { id: 1, label: "ftre", created_at: "2026-08-20T10:00:00", revoked_at: null },
     ]);
-    render(<KeysPanel />);
+    render(<I18nProvider><KeysPanel /></I18nProvider>);
     await waitFor(() => expect(screen.getByText("ftre")).toBeDefined());
 
     fireEvent.click(screen.getByText("吊销"));
@@ -87,7 +88,7 @@ describe("KeysPanel", () => {
       { id: 1, label: "ftre", created_at: "2026-08-20T10:00:00", revoked_at: null },
     ]);
 
-    render(<KeysPanel />);
+    render(<I18nProvider><KeysPanel /></I18nProvider>);
     await waitFor(() => expect(screen.getByTestId("key-unlock")).toBeDefined());
 
     fireEvent.change(screen.getByTestId("unlock-input"), {

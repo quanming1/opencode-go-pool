@@ -1,11 +1,12 @@
 import { useState } from "react";
 import type { PoolAccount } from "../../types/pool";
 import { clearAccount, disableAccount, enableAccount } from "../../services/api";
+import { useI18n } from "../../i18n";
 
 /**
  * 账号控制按钮组（C3 FR8）：
  * 清除冷却（cooldown 时可用）/ 禁用（healthy 时）/ 启用（disabled 时）。
- * 操作成功后回调 onChanged 触发列表刷新。
+ * 操作成功后回调 onChanged 触发列表刷新。E2 i18n。
  */
 export function AccountControls({
   account,
@@ -14,6 +15,7 @@ export function AccountControls({
   account: PoolAccount;
   onChanged: () => void;
 }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +24,7 @@ export function AccountControls({
     setError(null);
     try {
       const r = await action();
-      if (!r.ok) setError("操作失败");
+      if (!r.ok) setError(t("ctrl.failed"));
       onChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -39,20 +41,21 @@ export function AccountControls({
     <div className="account-controls">
       {canClear && (
         <button type="button" className="btn" disabled={busy} onClick={() => run(() => clearAccount(account.id))}>
-          清除冷却
+          {t("ctrl.clear")}
         </button>
       )}
       {canDisable && (
         <button type="button" className="btn" disabled={busy} onClick={() => run(() => disableAccount(account.id))}>
-          禁用
+          {t("ctrl.disable")}
         </button>
       )}
       {canEnable && (
         <button type="button" className="btn" disabled={busy} onClick={() => run(() => enableAccount(account.id))}>
-          启用
+          {t("ctrl.enable")}
         </button>
       )}
       {error && <span className="account-controls__error">{error}</span>}
     </div>
   );
 }
+

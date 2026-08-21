@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CreatedGatewayKey, GatewayKey } from "../../types/pool";
 import { createGatewayKey, fetchGatewayKeys, rememberAdminKey, revokeGatewayKey } from "../../services/api";
+import { useI18n } from "../../i18n";
 
 /**
- * Tab2：API Key 管理（C3 FR9）。
+ * Tab2：API Key 管理（C3 FR9；E2 i18n）。
  * - key 列表（label/创建时间/有效|已吊销）
  * - 生成新 key（明文一次性展示 + 复制）
  * - 吊销（二次确认）
  */
 export function KeysPanel() {
+  const { t } = useI18n();
   const [keys, setKeys] = useState<GatewayKey[]>([]);
   const [label, setLabel] = useState("");
   const [created, setCreated] = useState<CreatedGatewayKey | null>(null);
@@ -47,7 +49,7 @@ export function KeysPanel() {
     setError(null);
     setCopied(false);
     try {
-      const k = await createGatewayKey(label.trim() || "unnamed");
+      const k = await createGatewayKey(label.trim() || t("keys.unnamed"));
       setCreated(k);
       setLabel("");
       await reload();
@@ -91,7 +93,7 @@ export function KeysPanel() {
       await navigator.clipboard.writeText(created.key);
       setCopied(true);
     } catch {
-      setError("复制失败，请手动复制");
+      setError(t("keys.copyFailed"));
     }
   }
 
@@ -99,33 +101,31 @@ export function KeysPanel() {
     <div className="keys-panel" data-testid="keys-panel">
       {locked && (
         <section className="card key-unlock" data-testid="key-unlock">
-          <h2 className="card-title">需要管理密钥</h2>
-          <p className="dashboard-empty">
-            本浏览器尚未保存有效的管理密钥（鉴权已启用）。粘贴任一有效网关 key 或 master key 解锁：
-          </p>
+          <h2 className="card-title">{t("keys.unlockTitle")}</h2>
+          <p className="dashboard-empty">{t("keys.unlockTip")}</p>
           <div className="keys-create">
             <input
               type="text"
               className="keys-input"
-              placeholder="gk-... 或 master key"
+              placeholder={t("keys.unlockPlaceholder")}
               value={unlockInput}
               onChange={(e) => setUnlockInput(e.target.value)}
               data-testid="unlock-input"
             />
             <button type="button" className="btn btn-primary" onClick={handleUnlock} data-testid="unlock-btn">
-              解锁
+              {t("keys.unlock")}
             </button>
           </div>
         </section>
       )}
 
       <section className="card">
-        <h2 className="card-title">生成新 Key</h2>
+        <h2 className="card-title">{t("keys.createTitle")}</h2>
         <div className="keys-create">
           <input
             type="text"
             className="keys-input"
-            placeholder="标签（如 ftre）"
+            placeholder={t("keys.labelPlaceholder")}
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             data-testid="key-label-input"
@@ -137,22 +137,20 @@ export function KeysPanel() {
             onClick={handleCreate}
             data-testid="key-create-btn"
           >
-            生成
+            {t("keys.create")}
           </button>
         </div>
 
         {created && (
           <div className="key-once" data-testid="key-once">
-            <p className="key-once__warn">
-              明文 key 仅显示这一次，请立即复制保存（用于客户端 Authorization: Bearer 头）：
-            </p>
+            <p className="key-once__warn">{t("keys.onceWarn")}</p>
             <div className="key-once__row">
               <code className="key-once__code">{created.key}</code>
               <button type="button" className="btn" onClick={copyKey}>
-                {copied ? "已复制" : "复制"}
+                {copied ? t("keys.copied") : t("keys.copy")}
               </button>
               <button type="button" className="btn" onClick={() => setCreated(null)}>
-                我已保存
+                {t("keys.saved")}
               </button>
             </div>
           </div>
@@ -160,50 +158,52 @@ export function KeysPanel() {
       </section>
 
       <section className="card">
-        <h2 className="card-title">已有 Key（{keys.length}）</h2>
+        <h2 className="card-title">{t("keys.listTitle", { n: keys.length })}</h2>
         {keys.length === 0 ? (
-          <p className="dashboard-empty">暂无 key。生成后转发端点将启用 Bearer 鉴权。</p>
+          <p className="dashboard-empty">{t("keys.emptyTip")}</p>
         ) : (
-          <table className="keys-table">
-            <thead>
-              <tr>
-                <th>标签</th>
-                <th>创建时间</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {keys.map((k) => (
-                <tr key={k.id} data-testid={`key-row-${k.id}`}>
-                  <td>{k.label}</td>
-                  <td>{k.created_at.slice(0, 19).replace("T", " ")}</td>
-                  <td>
-                    <span className={`badge badge-${k.revoked_at ? "disabled" : "healthy"}`}>
-                      {k.revoked_at ? "已吊销" : "有效"}
-                    </span>
-                  </td>
-                  <td>
-                    {k.revoked_at ? null : confirmRevoke === k.id ? (
-                      <span className="keys-confirm">
-                        确认吊销？
-                        <button type="button" className="btn btn-danger" disabled={busy} onClick={() => handleRevoke(k.id)}>
-                          确认
-                        </button>
-                        <button type="button" className="btn" onClick={() => setConfirmRevoke(null)}>
-                          取消
-                        </button>
-                      </span>
-                    ) : (
-                      <button type="button" className="btn" disabled={busy} onClick={() => setConfirmRevoke(k.id)}>
-                        吊销
-                      </button>
-                    )}
-                  </td>
+          <div className="keys-table-wrap">
+            <table className="keys-table">
+              <thead>
+                <tr>
+                  <th>{t("keys.colLabel")}</th>
+                  <th>{t("keys.colCreated")}</th>
+                  <th>{t("keys.colStatus")}</th>
+                  <th>{t("keys.colAction")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {keys.map((k) => (
+                  <tr key={k.id} data-testid={`key-row-${k.id}`}>
+                    <td>{k.label}</td>
+                    <td>{k.created_at.slice(0, 19).replace("T", " ")}</td>
+                    <td>
+                      <span className={`badge badge-${k.revoked_at ? "disabled" : "healthy"}`}>
+                        {k.revoked_at ? t("keys.revoked") : t("keys.active")}
+                      </span>
+                    </td>
+                    <td>
+                      {k.revoked_at ? null : confirmRevoke === k.id ? (
+                        <span className="keys-confirm">
+                          {t("keys.confirmRevoke")}
+                          <button type="button" className="btn btn-danger" disabled={busy} onClick={() => handleRevoke(k.id)}>
+                            {t("keys.confirm")}
+                          </button>
+                          <button type="button" className="btn" onClick={() => setConfirmRevoke(null)}>
+                            {t("keys.cancel")}
+                          </button>
+                        </span>
+                      ) : (
+                        <button type="button" className="btn" disabled={busy} onClick={() => setConfirmRevoke(k.id)}>
+                          {t("keys.revoke")}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
