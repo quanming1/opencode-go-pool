@@ -58,7 +58,9 @@ class Forwarder:
         self._timeout = timeout
         # 连接复用：单例 AsyncClient（B2 性能——每次转发新建客户端会导致每次
         # 请求重新 TLS 握手 + 无连接池，流式首字节明显变慢）；外部注入的 client
-        #（测试 MockTransport）由注入方管理生命周期
+        #（测试 MockTransport）由注入方管理生命周期。
+        # G7 注：曾尝试 http2=True 多路复用——需额外依赖 httpx[http2]（h2 包），
+        # 对单请求/流式透传本地开销无实质收益（瓶颈已由连接复用解决），放弃
         self._client = client or httpx.AsyncClient(timeout=self._timeout)
         self._owns_client = client is None
         # C2：可选用量记录器（record() 签名见 usage/recorder.py）

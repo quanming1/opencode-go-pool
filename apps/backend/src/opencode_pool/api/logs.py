@@ -1,8 +1,10 @@
 """日志概览 API（D1 FR3/FR4）：GET /api/logs/overview。
 
 读端点，与 /api/stats 同级开放（本地单用户模式）。
+G7：服务内聚合（扫最近事件 + store 查询）移出事件循环（asyncio.to_thread）。
 """
 
+import asyncio
 import json
 import logging
 
@@ -26,7 +28,8 @@ async def logs_overview(request: Request) -> Response:
             quota = await quota_service.fetch(force=False)  # 复用 TTL 缓存
         except Exception:  # noqa: BLE001 - 额度取不到不影响概览其余部分
             logger.warning("[logs] 获取额度摘要失败（剩余推测降级）")
-    data = service.overview(quota=quota)
+    # G7：聚合（扫事件 + store 查询）移出事件循环，避免阻塞流式转发
+    data = await asyncio.to_thread(service.overview, quota)
     return Response(
         content=json.dumps(data, ensure_ascii=False),
         status_code=200,

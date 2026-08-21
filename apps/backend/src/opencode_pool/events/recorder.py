@@ -43,12 +43,18 @@ def _dumps(obj: dict) -> str:
 
 
 class EventRecorder:
-    """组装统一事件并落库；store 不可用/失败一律降级。"""
+    """组装统一事件并落库；store 不可用/失败一律降级。
 
-    def __init__(self, store: object | None = None) -> None:
+    G7：构造可选 writer（SQLiteWriter）——非 None 时 record 仅入队（零阻塞），
+    由单写线程异步落库；无 writer（默认）保持同步直写（测试/独立使用）。
+    """
+
+    def __init__(self, store: object | None = None, writer: object | None = None) -> None:
         # store 需提供 save_event(type_, event_time, data_json, meta_json)
         # 与 query_events(limit, types)（AccountStore 实现，duck-typing）。
         self._store = store
+        # G7：异步落库队列（需提供 submit(fn, *args)；None = 同步直写）
+        self._writer = writer
 
     def record(
         self,
@@ -64,6 +70,16 @@ class EventRecorder:
             "time": _dt.datetime.now(_dt.UTC).isoformat(),
         }
         if self._store is None:
+            return
+        if self._writer is not None:
+            # G7：异步落库——仅入队，写线程执行；事件各字段已定型，闭包安全
+            self._writer.submit(
+                self._store.save_event,
+                event["type"],
+                event["time"],
+                _dumps(event["data"]),
+                _dumps(event["meta"]),
+            )
             return
         try:
             self._store.save_event(
