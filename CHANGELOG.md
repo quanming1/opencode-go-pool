@@ -6,6 +6,7 @@
 
 ### Added
 
+- G8 极致性能模式 · 成功请求快路径与资源上限（`FAST_MODE=true`，默认关闭）：新建 `metrics/fast.py`——成功请求**不构造事件 JSON、不写 SQLite、不队列入队**，只更新固定上限内存聚合（`FastMetrics`：168 小时桶滚动窗口 + 每桶 500 耗时样本上限 + 账号/账号×模型/协议/错误类型聚合，快路径单次 O(1)，内存硬上限约 2MB 级）；失败/切换/冷却/禁用事件完整保留；`UsageRecorder`/`EventRecorder` 加 `fast_mode` 短路（成功 request 事件在组装 JSON 之前返回）；`SQLiteWriter` **有界化**（maxsize=2000，满载非阻塞——droppable 成功快照直接丢弃、不可丢事件驱逐最旧 droppable 腾位，`dropped` 计数，队列不无限增长）；`/api/stats` 输出 `mode: "fast"|"normal"` 字段标注数据口径，前端运行汇总卡显示 FAST 徽章（hover 说明：成功请求仅内存聚合、重启后逐条历史不保留）；`.env.example`/README 双语说明。新增 test_fast_metrics 8 + test_fast_mode 7 + writer 有界 2 共 25 例；pytest 163 + ruff 0 + vitest 61 + eslint 0 + build 全绿；本地同 fake 上游控制实验（keep-alive 交替 6 轮）直连/池子首 chunk 中位 23.5/15.7ms，**中位差 -7.8ms ≤10ms（PASS）**（PR #119 合并，CI 三 job 全绿）
 - G7 速度对齐直连 · 转发热路径零阻塞改造：新建 `store/writer.py`（SQLiteWriter 单写线程队列）——事件/用量落库从"事件循环内同步 SQLite 写"改为 **record 仅入队零阻塞**，lifespan 收尾 flush+close；`EventRecorder`/`UsageRecorder` 双模式（默认同步直写兼容测试，注入 writer 启用异步）；`/api/stats` 聚合加 **3s TTL 缓存**（监控台 10s 轮询命中、零事件循环占用）并 `asyncio.to_thread` 移出事件循环，`/api/events`、`/api/logs/overview` 查询同样 to_thread——**转发热路径（含流式 chunk 间隔）与监控台轮询彻底互不阻塞**；出站 HTTP/2 尝试放弃（需额外 h2 依赖、无实质收益，PRD 变更记录留痕）。验收：本地隔离实验直连 vs 池子首 chunk 中位差 **8.2ms**（趋近物理下限）、流式 chunk 间隔与直连一致；真实上游剩余差异为出站网络路径（CDN 边缘/上游节点）而非代理本地；pytest 144（含 test_writer 6 例）+ ruff 0 + 前端零改动全绿（PR #115 合并，CI 三 job 全绿）
 
 ## [0.4.0] - 2026-08-21

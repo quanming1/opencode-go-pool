@@ -346,10 +346,10 @@ stages:
         acceptance: 转发热路径零同步 IO——事件/用量落库改单写线程队列（record 仅入队，默认同步直写兼容测试）；/api/stats 3s TTL 缓存 + asyncio.to_thread；/api/events、/api/logs/overview 查询 to_thread；出站 HTTP/2 尝试；端到端基准：直连 vs 优化池多轮交替首 chunk 中位差 ≤50ms；pytest + ruff 0 + 新增 writer 单测 + 前端全绿；运行中 48700 不受影响（独立实例验证）；CI 三 job 全绿
       - id: G8
         title: 极致性能模式 · 成功请求快路径与资源上限
-        status: in_progress
+        status: done
         date: 2026-08-21
         prd: docs/prd/PRD-G8-fast-mode.md
-        prd_status: 草稿
+        prd_status: 已验收
         modules:
           - apps/backend/src/opencode_pool/config.py
           - apps/backend/src/opencode_pool/metrics/fast.py
