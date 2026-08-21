@@ -107,11 +107,11 @@
 }
 
 
-/* 账号列表 */
+/* 账号列表：桌面一行 3 列（不挤），平板 2 列，手机 1 列（见 @768 / @576 断点）。 */
 .account-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
 }
 
 .account-card {
@@ -425,8 +425,12 @@
 
 /* ============ E1 响应式：断点体系（≥1280 桌面默认，1024/768/576 逐级收敛） ============ */
 
-/* 中等屏（≤1024）：状态并入额度头的网格改为两行（title+均值 同行、状态换行） */
+/* 中等屏（≤1024）：账号卡收窄为 2 列；状态并入额度头的网格改为两行（title+均值 同行、状态换行） */
 @media (max-width: 1024px) {
+  .account-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .summary-card__quota-head {
     grid-template-columns: minmax(180px, auto) minmax(0, 1fr);
   }
@@ -439,12 +443,8 @@
   }
 }
 
-/* 平板（≤768）：账号卡网格允许收缩到一整列不撑破容器 */
+/* 平板（≤768） */
 @media (max-width: 768px) {
-  .account-list {
-    grid-template-columns: repeat(auto-fill, minmax(0, 1fr));
-  }
-
   .event-timeline__time {
     min-width: 105px;
   }
