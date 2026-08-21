@@ -8,10 +8,10 @@
 |---|---|
 | 阶段 | G7 |
 | 名称 | 速度对齐直连 · 转发热路径零阻塞改造 |
-| 状态 | approved |
+| 状态 | 已验收 |
 | 创建日期 | 2026-08-21 |
 | 定稿日期 | 2026-08-21 |
-| 验收日期 | — |
+| 验收日期 | 2026-08-21 |
 | 关联文档 | docs/TODO.yaml 阶段 G7；apps/backend/src/opencode_pool/store/；apps/backend/src/opencode_pool/events/recorder.py；apps/backend/src/opencode_pool/usage/recorder.py；apps/backend/src/opencode_pool/api/；apps/backend/src/opencode_pool/app.py；apps/backend/src/opencode_pool/proxy/forwarder.py |
 
 ## 1. 背景与目标
@@ -101,3 +101,4 @@
 |---|---|---|
 | 2026-08-21 | 初始定稿 | — |
 | 2026-08-21 | 实现完成：FR6（http2 尝试）**放弃**——`http2=True` 需额外依赖 `httpx[http2]`（h2 包），对单请求/流式透传本地开销无实质收益（连接复用已解决主要瓶颈），不引入未声明依赖；其余 FR1-FR5/FR7 全部实现（SQLiteWriter 单写线程 / recorder 双模式 / stats 3s TTL 缓存 + 三 API to_thread / lifespan flush+close / test_writer 6 例） | 阶段 G7 开发 |
+| 2026-08-21 | 验收通过：pytest 144（含 test_writer 6 例）+ ruff 0；转发/轮询热路径 grep 确认零同步 sqlite（record 仅 submit）；本地隔离实验（直连 vs 池子→同一 fake 上游）首 chunk 中位差 **8.2ms** ≤50ms（PASS），流式 chunk 间隔 P90 与直连一致（10.6ms，即 fake 上游自身间隔）；真实上游对比剩余差异来自出站网络路径（CDN 边缘/上游节点，min 差 105ms 属连接路由变量，非代理本地开销）；前端零改动 vitest 60 + eslint 0 + build 全绿；CI 三 job 全绿（PR #115 合并） | 阶段 G7 完成 |
