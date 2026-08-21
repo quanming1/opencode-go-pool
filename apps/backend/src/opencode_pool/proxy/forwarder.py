@@ -18,6 +18,7 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -55,11 +56,23 @@ class Forwarder:
         self._pool = pool
         self._upstream_base_url = upstream_base_url.rstrip("/")
         self._timeout = timeout
-        self._client = client
+        # 连接复用：单例 AsyncClient（B2 性能——每次转发新建客户端会导致每次
+        # 请求重新 TLS 握手 + 无连接池，流式首字节明显变慢）；外部注入的 client
+        #（测试 MockTransport）由注入方管理生命周期
+        self._client = client or httpx.AsyncClient(timeout=self._timeout)
+        self._owns_client = client is None
         # C2：可选用量记录器（record() 签名见 usage/recorder.py）
         self._usage = usage_recorder
         # C4：可选统一事件记录器（record(type_, data, meta) duck-typing）
         self._event_recorder = event_recorder
+
+    async def close(self) -> None:
+        """关闭自建的 HTTP 客户端（连接池释放；注入的 client 由注入方管理）。"""
+        if self._owns_client and self._client is not None:
+            try:
+                await self._client.aclose()
+            except Exception:  # noqa: BLE001 - 关闭失败不影响生命周期收尾
+                pass
 
     async def forward(self, request: Request, upstream_path: str = "/responses") -> Response:
         """处理单个转发请求，返回最终响应（可能已切换账号）。
@@ -102,9 +115,42 @@ class Forwarder:
                     },
                     meta={"source": "forwarder", "request_id": request_id},
                 )
+            # 流式成功时的延迟补记闭包：状态/用量/request 事件全部等
+            # 整个流发送完毕后执行——首 chunk 前不做任何同步 SQLite 落库
+            # （perf/B2：之前每次流式都在发首个字节前同步写库，实测首字节
+            # 比直连慢约 500ms；事件照常完整记录，duration 覆盖完整流时长）
+            stream_done: Callable[[Response, tuple[int, int]], None] | None = None
+            if stream:
+
+                def _on_stream_done(
+                    acc: Account = account,
+                    resp: Response | None = None,
+                    tk: tuple[int, int] | None = None,
+                ) -> None:
+                    try:
+                        self._pool.record_success(acc.id)
+                        if self._usage is not None:
+                            self._usage.record(acc.id, kind="success")
+                        self._emit_request(
+                            request_id,
+                            succeeded=True,
+                            protocol=upstream_path,
+                            stream=True,
+                            account_id=acc.id,
+                            status_code=resp.status_code if resp else 0,
+                            duration_ms=int((time.monotonic() - started) * 1000),
+                            attempt_log=attempt_log,
+                            model=payload.get("model"),
+                            tokens=tk or (0, 0),
+                        )
+                    except Exception:  # noqa: BLE001 - 流后补记失败不影响已发响应
+                        pass
+
+                stream_done = _on_stream_done
             try:
                 response, tokens = await self._forward_once(
-                    request, account, payload, stream, upstream_path
+                    request, account, payload, stream, upstream_path,
+                    on_stream_done=stream_done,
                 )
             except UpstreamError as exc:
                 last_error = exc
@@ -153,7 +199,8 @@ class Forwarder:
                 # quota / server / network → 继续尝试下一个账号
                 continue
 
-            # 成功：记录 request 事件并返回
+            # 成功：非流式在响应返回前记录 request 事件；流式由 _on_stream_done
+            # 在流结束后补记（首 chunk 前零落库）
             attempt_log.append(
                 {
                     "account_id": account.id,
@@ -162,18 +209,19 @@ class Forwarder:
                     "duration_ms": int((time.monotonic() - started) * 1000),
                 }
             )
-            self._emit_request(
-                request_id,
-                succeeded=True,
-                protocol=upstream_path,
-                stream=stream,
-                account_id=account.id,
-                status_code=response.status_code,
-                duration_ms=int((time.monotonic() - started) * 1000),
-                attempt_log=attempt_log,
-                model=payload.get("model"),
-                tokens=tokens,
-            )
+            if not stream:
+                self._emit_request(
+                    request_id,
+                    succeeded=True,
+                    protocol=upstream_path,
+                    stream=stream,
+                    account_id=account.id,
+                    status_code=response.status_code,
+                    duration_ms=int((time.monotonic() - started) * 1000),
+                    attempt_log=attempt_log,
+                    model=payload.get("model"),
+                    tokens=tokens,
+                )
             return response
 
         # 全部尝试失败 / 无健康账号：按错误构成发 all-keys 事件，再统一记 request
@@ -254,12 +302,14 @@ class Forwarder:
     async def _forward_once(
         self, request: Request, account: Account, payload: dict[str, Any], stream: bool,
         upstream_path: str = "/responses",
+        on_stream_done: Callable[[Response, tuple[int, int]], None] | None = None,
     ) -> tuple[Response, tuple[int, int]]:
         """单账号转发；成功返回 (response, (prompt_tokens, completion_tokens))。
 
         流式场景 token 无法精确统计，返回 (0, 0)（PRD-C2 §3 边界）。
+        on_stream_done：流式成功时，在该流整体发送完毕后调用（首字节前不落库）。
         """
-        client = self._client or httpx.AsyncClient(timeout=self._timeout)
+        client = self._client
         url = f"{self._base_url(account)}{upstream_path}"
         headers = {
             "Authorization": f"Bearer {account.api_key}",
@@ -291,9 +341,10 @@ class Forwarder:
                 raise UpstreamError(ErrorKind.NETWORK, detail="上游无响应状态码")
 
             # 2xx：成功 → 记录成功（重置连续失败计数），再转发 body
-            self._pool.record_success(account.id)
-            # C2：记录成功用量（非流式尽力提取 token；流式以请求数为主）
+            # 2xx：成功转发
             if not stream:
+                # 非流式：先重置连续失败计数，读全量 body 提取 token，再记用量
+                self._pool.record_success(account.id)
                 body_text = await _stream_read(upstream)
                 prompt_tokens, completion_tokens = _extract_usage(body_text)
                 await upstream.aclose()
@@ -311,12 +362,18 @@ class Forwarder:
                 )
                 tokens = (prompt_tokens, completion_tokens)
             else:
-                # 流式：计入请求量（token 无法精确，见 PRD-C2 §3 边界）
-                if self._usage is not None:
-                    self._usage.record(account.id, kind="success")
-                # 流式：把上游流包进可关闭的迭代器，响应发送完毕才关闭上游
+                # 流式：状态/用量/事件全部由 on_stream_done 在流结束后补记，
+                # 首 chunk 前不做任何同步 SQLite 落库（perf/B2）
+                if on_stream_done is not None:
+
+                    def _done() -> None:
+                        on_stream_done(resp=response, tk=tokens)
+
+                    done: Callable[[], None] | None = _done
+                else:
+                    done = None
                 response = StreamingResponse(
-                    content=_closing_aiter(upstream),
+                    content=_closing_aiter(upstream, on_done=done),
                     status_code=status,
                     media_type=upstream.headers.get("content-type", "text/event-stream"),
                     headers={
@@ -430,8 +487,12 @@ async def _stream_read(upstream: httpx.Response) -> str:
         return ""
 
 
-async def _closing_aiter(upstream: httpx.Response):
-    """迭代上游字节流，结束后关闭（延长上游生命周期到响应发送完毕）。"""
+async def _closing_aiter(upstream: httpx.Response, on_done: Callable[[], None] | None = None):
+    """迭代上游字节流，结束后关闭（延长上游生命周期到响应发送完毕）。
+
+    on_done：流整体结束（含客户端断开）后执行一次，用于流式补记
+    状态/用量/事件（perf/B2：首 chunk 前不做同步落库）。
+    """
     try:
         async for chunk in upstream.aiter_raw():
             yield chunk
@@ -440,6 +501,11 @@ async def _closing_aiter(upstream: httpx.Response):
             await upstream.aclose()
         except Exception:  # noqa: BLE001 - 关闭失败不影响透传
             pass
+        if on_done is not None:
+            try:
+                on_done()
+            except Exception:  # noqa: BLE001 - 补记失败不影响已发响应
+                pass
 
 
 def _safe_detail(kind: ErrorKind, status: int, body: str) -> str:
