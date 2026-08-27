@@ -42,11 +42,20 @@ WEB_START_TIMEOUT = 45.0
 
 # ---- 端口与进程清理 ----
 
+def run_text(cmd: list[str]) -> str:
+    """执行命令并返回 stdout 文本。
+
+    用 errors="replace" 容错解码：GBK 控制台下 netstat/PowerShell 可能输出
+    非 UTF-8 字节，默认严格解码会让 reader 线程抛 UnicodeDecodeError 导致
+    stdout 变 None，后续处理直接崩溃。
+    """
+    proc = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
+    return proc.stdout or ""
+
+
 def listening_pids(port: int) -> set[int]:
     """返回 LISTENING 在 port 上的 PID 集合（解析 netstat -ano）。"""
-    out = subprocess.run(
-        ["netstat", "-ano"], capture_output=True, text=True
-    ).stdout
+    out = run_text(["netstat", "-ano"])
     pids: set[int] = set()
     for line in out.splitlines():
         parts = line.split()
@@ -88,10 +97,7 @@ def kill_strays() -> list[int]:
         "-or $_.CommandLine -match $k2 -or $_.CommandLine -match $k3) "
         "} | Select-Object -ExpandProperty ProcessId"
     )
-    out = subprocess.run(
-        ["powershell", "-NoProfile", "-Command", ps],
-        capture_output=True, text=True,
-    ).stdout
+    out = run_text(["powershell", "-NoProfile", "-Command", ps])
     pids = [int(x) for x in out.split() if x.isdigit()]
     if pids:
         kill_pids(pids)
